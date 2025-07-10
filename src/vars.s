@@ -3,9 +3,6 @@
 ;
 TmpStart:
 
-FrameCnt:       ds 1
-VblFlag:        ds 1
-
 	align	20h
 AvmGlobal:      ds AVMG.len
 	align	20h

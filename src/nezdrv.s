@@ -3,117 +3,24 @@
 
 	include	"src/macro.inc"
 	include	"src/memmap.inc"
-z
+
 	include	"src/avm.inc"
+	include	"src/irq.inc"
 	include	"src/opn.inc"
 	include	"src/trackdata.inc"
-
-vbl_wait macro
-	ld	a, 01h
-	ld	(VblFlag), a
--:
-	ld	a, (VblFlag)
-	cp	00h
-	jr	nz, -
-	endm
-
-
-; Vectors
 	org	0000h
 v_rst0:
-	di             ; 1 byte
-	im	1      ; 2 bytes
-	jp	start  ; 2 bytes
-
-	org	0008h
-v_rst1:
-	ret
-
-	org	0010h
-v_rst2:
-	ret
-
-	org	0018h
-v_rst3:
-	ret
-
-	org	0020h
-v_rst4:
-	ret
-
-	org	0028h
-v_rst5:
-	ret
-
-	org	0030h
-v_rst6:
-	ret
-
-	org	0038h
-v_irq:
-	ex	af, af'
-	ld	a, (FrameCnt)
-	inc	a
-	ld	(FrameCnt), a
-	ld	a, 00h
-	ld	(VblFlag), a
-	ex	af, af'
-	ei
-	ret
-
-	org	0066h
-v_nmi:
-	retn
-
+	di                   ; 1 byte
+	im	1            ; 2 bytes
+	jp	start        ; 3 bytes
+	include	"src/pcm.s"
 	include	"src/opn.s"
 	include	"src/avm.s"
+	include	"src/main.s"
+	include	"src/vars.s"
 
 
-start:
-	ld	sp, StackEnd ; 3 bytes
-	call	opn_init
-	; Clear work RAM
-	ld	hl, TmpStart
-	; DE := hl + 1
-	ld	e, l
-	ld	d, h
-	inc	de
-	ld	(hl), 00h  ; First byte is initialized with clear value 00h
-	ld	bc, TmpEnd-TmpStart
-	ldir
 
-soft_start:
-	call	avm_init
-
-	;
-	; TEST DATA
-	;
-	ld	iy, AvmOpn+AVM.len*3
-	ld	de, avm_data_testtrk
-	call	avm_set_head
-	ld	iy, AvmOpn+AVM.len*2
-	ld	de, avm_data_testtrk2
-	call	avm_set_head
-
-	; Set up channel 0 with a patch
-	ld	hl, opnp_test
-	ld	a, 0
-	call	opn_set_patch
-	ld	hl, opnp_test
-	ld	a, 1
-	call	opn_set_patch
-	ld	hl, opnp_test
-	ld	a, 2
-	call	opn_set_patch
-
-	ei
-
-main:
-	call	opn_wait_timer_b  ; TODO
-;	vbl_wait
-	call	avm_poll
-;	call	keydown_test_func
-	jr	main
 
 ;
 ; Test track. It's Freddie Hubbard's "Straight Life".
@@ -150,6 +57,7 @@ avm_data_testtrk:
 	db	AVM_OCT_UP, AVM_NOTE_C | AVM_NOTE_REST_FLAG, 48
 
 .melody:
+	db	AVM_PAN, OPN_PAN_L
 	db	AVM_LENGTH, MELODY_LENGTH
 	db	AVM_OCT, 3*8
 .loop:
@@ -180,9 +88,20 @@ avm_data_testtrk:
 	dw	AVM_RET
 
 avm_data_testtrk2:
+	db	AVM_PAN, OPN_PAN_R
 	db	AVM_OCT, 5*8
 	db	AVM_LENGTH, MELODY_LENGTH
 .loop:
+	db	AVM_CALL
+	dw	.pt1_sub
+	db	AVM_CALL
+	dw	.pt2_sub
+	db	AVM_JUMP
+	dw	.loop
+
+.pt1_sub:
+	db	AVM_PMS, 7
+	db	AVM_LOOPSET, 2
 	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, MELODY_LENGTH*3
 	db	AVM_NOTE_Eb
 	db	AVM_NOTE_E
@@ -199,10 +118,42 @@ avm_data_testtrk2:
 	db	AVM_NOTE_C | AVM_NOTE_REST_FLAG, MELODY_LENGTH*11
 	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
 	db	AVM_NOTE_Eb
-	db	AVM_JUMP
-	dw	.loop
+	db	AVM_LOOPEND
+	dw	AVM_RET
 
-	
+.pt2_sub:
+	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_F | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_G | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_A
+	db	AVM_NOTE_As, AVM_NOTE_OFF
+	db	AVM_REST, MELODY_LENGTH*8
+	db	AVM_NOTE_As | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_A | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_G | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_F
+	db	AVM_NOTE_G, AVM_NOTE_OFF
+	db	AVM_REST, MELODY_LENGTH*8
+	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_F | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_G | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_A | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_As | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_A | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_G | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_F | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_G | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_Eb
+	db	AVM_NOTE_E, AVM_NOTE_OFF
+	db	AVM_REST, MELODY_LENGTH*3
+	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_D
+	db	AVM_NOTE_C
+	db	AVM_OCT_DOWN, AVM_NOTE_Bb, AVM_OCT_UP
+	db	AVM_RET
+
 
 
 opnp_test:
@@ -236,5 +187,3 @@ opnp_test:
 	opnp_ssg_eg  0      ; 2
 	opnp_ssg_eg  0      ; 1
 	opnp_ssg_eg  0      ; 3
-
-	include	"src/vars.s"

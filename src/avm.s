@@ -106,16 +106,17 @@ avm_init:
 	; hl now points to the stack start.
 	ld	(iy+AVM.stack_ptr+1), h
 	ld	(iy+AVM.stack_ptr), l
+	; mark channel offset
+	pop	af
+	ld	(iy+AVM.channel_id), a
 	; channel default
 	ld	(iy+AVM.rest_val), AVM_REST_DEFAULT
 	; patch default
 	ld	hl, avm_data_default_patch
 	ld	(iy+AVM.patch_ptr+1), h
 	ld	(iy+AVM.patch_ptr), l
-
-	; mark channel offset
-	pop	af
-	ld	(iy+AVM.channel_id), a
+	; default to both outputs, no modulation
+	ld	(iy+AVM.pan), OPN_PAN_L|OPN_PAN_R
 
 	ret
 
@@ -154,7 +155,7 @@ avm_poll:
 	; TODO: macros / envelopes here
 	; If rest counter > 0, decrement and proceed
 	ld	a, (iy+AVM.rest_cnt)
-	cp	00h
+	and	a
 	jr	z, +
 	dec	a
 	ld	(iy+AVM.rest_cnt), a
@@ -184,9 +185,11 @@ avm_poll:
 	jp	.avm_op_inst     ; 11
 	jp	.avm_op_vol      ; 12
 	jp	.avm_op_pan      ; 13
-	jp	.avm_op_lfo      ; 14
+	jp	.avm_op_pms      ; 14
 	jp	.avm_op_opn_reg  ; 15
 	jp	.avm_op_stop     ; 16
+	jp	.avm_op_note_off ; 17
+	jp	.avm_op_ams      ; 18
 
 .avm_op_jump:     ;  0
 	; two bytes - pointer to jump to
@@ -195,7 +198,7 @@ avm_poll:
 	inc	hl
 	ld	a, (hl)
 	ld	(iy+AVM.pc+1), a
-	jp	.exec
+	jr	.exec
 
 .avm_op_call:     ;  1
 ; Read address argument and set pc to it
@@ -221,7 +224,7 @@ avm_poll:
 	; store moved stack pointer
 	ld	(iy+AVM.stack_ptr+1), d
 	ld	(iy+AVM.stack_ptr), e
-	jp	.exec
+	jr	.exec
 
 .avm_op_ret:      ;  2
 	; decrement stack pointer, and place contents in pc.
@@ -238,18 +241,38 @@ avm_poll:
 	ld	(iy+AVM.pc), a
 	jp	.exec
 
-
 .avm_op_loopset:  ;  3
-.avm_op_loopend:  ;  4
-	; TODO
+	; Get loop count
+	ld	a, (hl)
+	ld	(iy+AVM.loop_cnt), a
+	inc	hl
+	; Store address in the loop pointer field
+	ld	(iy+AVM.loop_ptr+1), h
+	ld	(iy+AVM.loop_ptr), l
 	jp	.instruction_finished
+
+	; Current PC is
+.avm_op_loopend:  ;  4
+	ld	a, (iy+AVM.loop_cnt)
+	sub	a, 1
+	ld	(iy+AVM.loop_cnt), a
+	jr	z, +
+	; jump back to loop
+	ld	a, (iy+AVM.loop_ptr+1)
+	ld	(iy+AVM.pc+1), a
+	ld	a, (iy+AVM.loop_ptr)
+	ld	(iy+AVM.pc), a
+	jp	.exec
++:
+	jr	.instruction_finished
+
 .avm_op_timer:    ;  5
 	ld	ix, OPN_BASE
 	ld	(ix+0), OPN_REG_TB
 	ld	a, (hl)
 	inc	hl
 	ld	(ix+1), a
-	jp	.instruction_finished
+	jr	.instruction_finished
 
 
 ; Sets the default rest value associated with notes.
@@ -257,44 +280,72 @@ avm_poll:
 	ld	a, (hl)
 	ld	(iy+AVM.rest_val), a
 	inc	hl
-	jp	.instruction_finished
+	jr	.instruction_finished
 
 ; Sets the octave register value.
 .avm_op_oct:      ;  8
 	ld	a, (hl)
 	inc	hl
-.avm_op_oct_commit_a
+.avm_op_oct_commit_a:
 	ld	(iy+AVM.octave), a
-	jp	.instruction_finished
+	jr	.instruction_finished
 
 .avm_op_oct_up:   ;  9
 	ld	a, (iy+AVM.octave)
 	cp	7*8  ; octave already > 7?
-	jp	nc, .instruction_finished
+	jr	nc, .instruction_finished
 	add	a, 8
 	jr	.avm_op_oct_commit_a
 
 .avm_op_oct_down: ; 10
 	ld	a, (iy+AVM.octave)
 	cp	0*8  ; octave already > 7?
-	jp	z, .instruction_finished
+	jr	z, .instruction_finished
 	sub	a, 8
 	jr	.avm_op_oct_commit_a
 
 .avm_op_inst:     ; 11
 .avm_op_vol:      ; 12
+	ld	a, (hl)
+	ld	(iy+AVM.volume), a
+	inc	hl
+	jr	.instruction_finished
+
 .avm_op_pan:      ; 13
-.avm_op_lfo:      ; 14
+	ld	a, (iy+AVM.pan)
+	and	a, 3Fh  ; remove pan bits
+.avm_op_pan_commit_a:
+	or	a, (hl)
+	inc	hl
+	ld	a, (iy+AVM.channel_id)
+	opn_set_base_ix
+	add	a, OPN_REG_MOD
+	ld	(ix+0), a
+	ld	a, (iy+AVM.pan)
+	ld	(ix+1), a
+	jr	.instruction_finished
+
+.avm_op_pms:      ; 14
+	ld	a, (iy+AVM.pan)
+	and	a, 0F8h  ; remove pms bits
+	jr	.avm_op_pan_commit_a
+
+.avm_op_ams:      ; 14
+	ld	a, (iy+AVM.pan)
+	and	a, 0CFh  ; remove ams bits
+	jr	.avm_op_pan_commit_a
+
 .avm_op_opn_reg:  ; 15
-	jp	.instruction_finished
+	jr	.instruction_finished
 .avm_op_stop:     ; 16
 	ld	(iy+AVM.status), AVM_STATUS_INACTIVE
-	jp	.instruction_finished
+	jr	.instruction_finished
 
 .instruction_finished:
 	ld	(iy+AVM.pc+1), h
 	ld	(iy+AVM.pc), l
 	jp	.exec
+
 
 .handle_note:
 	push	hl  ; store note pointer
@@ -351,7 +402,7 @@ avm_poll:
 	; Else just adopt the default rest value.
 	ld	a, (iy+AVM.rest_val)
 	ld	(iy+AVM.rest_cnt), a
-	jp	.instruction_finished
+	jr	.instruction_finished
 
 .freq_tbl:
 	db	(OPN_NOTE_C  >> 8) & 07h, OPN_NOTE_C  & 0FFh
@@ -377,4 +428,11 @@ avm_poll:
 	ld	a, (iy+AVM.rest_val)
 +:
 	ld	(iy+AVM.rest_cnt), a
+	jp	.instruction_finished
+
+.avm_op_note_off: ; 17
+	ld	a, (iy+AVM.channel_id)
+	opn_set_base_ix
+	ld	(ix+0), OPN_REG_KEYON
+	ld	(ix+1), a
 	jp	.instruction_finished

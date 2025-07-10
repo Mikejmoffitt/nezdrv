@@ -23,12 +23,15 @@ channel_id: ds 1
 
 pc:         ds 2
 
-loop_start: ds 2
+loop_ptr:   ds 2
 loop_cnt:   ds 1
 
 rest_val:   ds 1
 rest_cnt:   ds 1
 
+tl:         ds 4  ; TL values from when instrument was set.
+volume:     ds 1  ; really attenuation, summed with tl on key-on.
+pan:        ds 1  ; pan/ams/pms register.
 octave:     ds 1  ; stored as multiples of 8 to match register.
 ; the stack grows forwards.
 stack:      ds AVM_STACK_DEPTH*2
@@ -75,15 +78,16 @@ AVM_INST     = 3*11
 AVM_VOL      = 3*12
 ; Set panning
 AVM_PAN      = 3*13
-; Set LFO
-AVM_LFO      = 3*14
+; Set PMS
+AVM_PMS      = 3*14
 ; Set arbitrary FM register  +2 bytes
 AVM_OPN_REG  = 3*15
 ; Stop the channel.
 AVM_STOP     = 3*16
 ; Note off
 AVM_NOTE_OFF = 3*17
-; Note cut
+; Set AMS
+AVM_AMS      = 3*18
 
 
 
