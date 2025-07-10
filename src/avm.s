@@ -60,8 +60,8 @@ avm_init:
 	pop	hl
 	inc	hl
 
-	ld	a, AVM.len
-	add_a_to_iy
+	ld	de, AVM.len
+	add	iy, de
 	djnz	-
 
 	; Set global state
@@ -72,11 +72,11 @@ avm_init:
 	ret
 
 .channel_id_tbl:
+	db	0, 1, 2 ; FM0-FM2 sound effects
 	db	0, 1, 2  ; FM0-FM2
 	db	4, 5, 6  ; FM3-FM6
-	db	0, 1, 2 ; FM0-FM2 sound effects
-	db	00h, 20h, 40h, 60h  ; PSG 0-3
 	db	00h, 20h  ; PSG 0-1 sound effects
+	db	00h, 20h, 40h, 60h  ; PSG 0-3
 
 ; iy = channel state struct
 ; a = channel id / offset
@@ -101,8 +101,8 @@ avm_init:
 	ld	(iy+AVM.pc), l
 	; Set stack pointer
 	pop	hl
-	ld	a, AVM.stack
-	add_a_to_hl
+	ld	de, AVM.stack
+	add	hl, de
 	; hl now points to the stack start.
 	ld	(iy+AVM.stack_ptr+1), h
 	ld	(iy+AVM.stack_ptr), l
@@ -134,7 +134,7 @@ avm_set_head:
 ;
 avm_poll:
 	; Initialize channels
-	ld	b, TOTAL_CHANNEL_COUNT-1  ; let it fall through for the final
+	ld	b, TOTAL_CHANNEL_COUNT
 	ld	iy, AvmOpn
 -:
 	push	bc
@@ -144,12 +144,11 @@ avm_poll:
 	jr	z, .next_chan
 	call	.exec
 .next_chan:
-	ld	a, AVM.len
-	add_a_to_iy
+	ld	de, AVM.len
+	add	iy, de
 	pop	bc
 	djnz	-
 	ret
-	
 
 .exec:
 	; TODO: macros / envelopes here
@@ -255,7 +254,6 @@ avm_poll:
 
 .avm_op_oct_up:   ;  9
 	ld	a, (iy+AVM.octave)
-	or	a    ; carry reset
 	cp	7*8  ; octave already > 7?
 	jp	nc, .instruction_finished
 	add	a, 8
@@ -305,7 +303,9 @@ avm_poll:
 	; Regdata high
 	ld	a, b    ; restore note
 	and	a, 1Fh  ; index into freq table
-	add_a_to_hl
+	ld	e, a
+	ld	d, 00h
+	add	hl, de
 	ld	a, (hl)
 	or	a, (iy+AVM.octave)
 	ld	(ix+1), a

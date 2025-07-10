@@ -87,13 +87,22 @@ soft_start:
 	;
 	; TEST DATA
 	;
-	ld	iy, AvmOpn+AVM.len*0
+	ld	iy, AvmOpn+AVM.len*3
 	ld	de, avm_data_testtrk
+	call	avm_set_head
+	ld	iy, AvmOpn+AVM.len*2
+	ld	de, avm_data_testtrk2
 	call	avm_set_head
 
 	; Set up channel 0 with a patch
 	ld	hl, opnp_test
 	ld	a, 0
+	call	opn_set_patch
+	ld	hl, opnp_test
+	ld	a, 1
+	call	opn_set_patch
+	ld	hl, opnp_test
+	ld	a, 2
 	call	opn_set_patch
 
 	ei
@@ -101,15 +110,12 @@ soft_start:
 main:
 ;	call	opn_wait_timer_b  ; TODO
 	vbl_wait
-
-	; For now just run the one
-	ld	iy, AvmOpn
 	call	avm_poll
 ;	call	keydown_test_func
 	jr	main
 
 ;
-; Test track
+; Test track. It's Freddie Hubbard's "Straight Life".
 ;
 avm_data_testtrk:
 	db	AVM_TIMER, 80
@@ -163,6 +169,31 @@ avm_data_testtrk:
 	db	AVM_OCT_UP
 	db	AVM_JUMP
 	dw	.loop
+
+avm_data_testtrk2:
+	db	AVM_OCT, 5*8
+	db	AVM_LENGTH, 7
+.loop:
+	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, 7*3
+	db	AVM_NOTE_Eb
+	db	AVM_NOTE_E
+	db	AVM_NOTE_D
+	db	AVM_NOTE_C | AVM_NOTE_REST_FLAG, 7*2
+
+	db	AVM_NOTE_D | AVM_NOTE_REST_FLAG, 7*3
+	db	AVM_NOTE_C
+	db	AVM_NOTE_D
+	db	AVM_NOTE_C, AVM_OCT_DOWN
+	db	AVM_NOTE_Bb | AVM_NOTE_REST_FLAG, 7*2
+	db	AVM_NOTE_Bb | AVM_NOTE_REST_FLAG, 7*2
+	db	AVM_OCT_UP
+	db	AVM_NOTE_C | AVM_NOTE_REST_FLAG, 7*11
+	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, 7*2
+	db	AVM_NOTE_Eb
+	db	AVM_JUMP
+	dw	.loop
+
+	
 
 
 opnp_test:
