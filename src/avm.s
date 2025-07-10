@@ -171,6 +171,13 @@ avm_poll:
 	jp	nz, .handle_note
 	; Else, it's a control instruction.
 	jptbl_dispatch
+
+; ------------------------------------------------------------------------------
+;
+; Control instructions
+;
+; ------------------------------------------------------------------------------
+
 	jp	.avm_op_jump     ;  0
 	jp	.avm_op_call     ;  1
 	jp	.avm_op_ret      ;  2
@@ -190,6 +197,8 @@ avm_poll:
 	jp	.avm_op_stop     ; 16
 	jp	.avm_op_note_off ; 17
 	jp	.avm_op_ams      ; 18
+
+; ------------------------------------------------------------------------------
 
 .avm_op_jump:     ;  0
 	; two bytes - pointer to jump to
@@ -251,7 +260,6 @@ avm_poll:
 	ld	(iy+AVM.loop_ptr), l
 	jp	.instruction_finished
 
-	; Current PC is
 .avm_op_loopend:  ;  4
 	ld	a, (iy+AVM.loop_cnt)
 	sub	a, 1
@@ -264,7 +272,7 @@ avm_poll:
 	ld	(iy+AVM.pc), a
 	jp	.exec
 +:
-	jr	.instruction_finished
+	jp	.instruction_finished
 
 .avm_op_timer:    ;  5
 	ld	ix, OPN_BASE
@@ -282,29 +290,47 @@ avm_poll:
 	inc	hl
 	jr	.instruction_finished
 
+; Consumes the following byte as a rest count value.
+.avm_op_rest:     ;  7
+	ld	a, (hl)
+	inc	hl
+	cp	00h
+	jr	nz, +
+	; argument was 0 - used default
+	ld	a, (iy+AVM.rest_val)
++:
+	ld	(iy+AVM.rest_cnt), a
+	jp	.instruction_finished
+
 ; Sets the octave register value.
 .avm_op_oct:      ;  8
 	ld	a, (hl)
 	inc	hl
+	; fall-through
 .avm_op_oct_commit_a:
 	ld	(iy+AVM.octave), a
 	jr	.instruction_finished
 
 .avm_op_oct_up:   ;  9
 	ld	a, (iy+AVM.octave)
-	cp	7*8  ; octave already > 7?
+	cp	7*8  ; octave already == 7?
 	jr	nc, .instruction_finished
 	add	a, 8
 	jr	.avm_op_oct_commit_a
 
 .avm_op_oct_down: ; 10
 	ld	a, (iy+AVM.octave)
-	cp	0*8  ; octave already > 7?
+	and	a  ; octave already at 0?
 	jr	z, .instruction_finished
 	sub	a, 8
 	jr	.avm_op_oct_commit_a
 
 .avm_op_inst:     ; 11
+	inc	hl
+	; TODO
+	; read global instrument table, pull by adding offset from (hl)
+	jr	.instruction_finished
+
 .avm_op_vol:      ; 12
 	ld	a, (hl)
 	ld	(iy+AVM.volume), a
@@ -314,6 +340,7 @@ avm_poll:
 .avm_op_pan:      ; 13
 	ld	a, (iy+AVM.pan)
 	and	a, 3Fh  ; remove pan bits
+	; fall-through to commit
 .avm_op_pan_commit_a:
 	or	a, (hl)
 	inc	hl
@@ -337,6 +364,7 @@ avm_poll:
 
 .avm_op_opn_reg:  ; 15
 	jr	.instruction_finished
+
 .avm_op_stop:     ; 16
 	ld	(iy+AVM.status), AVM_STATUS_INACTIVE
 	jr	.instruction_finished
@@ -346,6 +374,18 @@ avm_poll:
 	ld	(iy+AVM.pc), l
 	jp	.exec
 
+.avm_op_note_off: ; 17
+	ld	a, (iy+AVM.channel_id)
+	opn_set_base_ix
+	ld	(ix+0), OPN_REG_KEYON
+	ld	(ix+1), a
+	jp	.instruction_finished
+
+; ------------------------------------------------------------------------------
+;
+; Notes
+;
+; ------------------------------------------------------------------------------
 
 .handle_note:
 	push	hl  ; store note pointer
@@ -398,7 +438,7 @@ avm_poll:
 	pop	hl
 	ld	a, b
 	and	a, AVM_NOTE_REST_FLAG
-	jr	nz, .avm_op_rest
+	jp	nz, .avm_op_rest
 	; Else just adopt the default rest value.
 	ld	a, (iy+AVM.rest_val)
 	ld	(iy+AVM.rest_cnt), a
@@ -417,22 +457,3 @@ avm_poll:
 	db	(OPN_NOTE_A  >> 8) & 07h, OPN_NOTE_A  & 0FFh
 	db	(OPN_NOTE_As >> 8) & 07h, OPN_NOTE_As & 0FFh
 	db	(OPN_NOTE_B  >> 8) & 07h, OPN_NOTE_B  & 0FFh
-
-; Consumes the following byte as a rest count value.
-.avm_op_rest:     ;  7
-	ld	a, (hl)
-	inc	hl
-	cp	00h
-	jr	nz, +
-	; argument was 0 - used default
-	ld	a, (iy+AVM.rest_val)
-+:
-	ld	(iy+AVM.rest_cnt), a
-	jp	.instruction_finished
-
-.avm_op_note_off: ; 17
-	ld	a, (iy+AVM.channel_id)
-	opn_set_base_ix
-	ld	(ix+0), OPN_REG_KEYON
-	ld	(ix+1), a
-	jp	.instruction_finished

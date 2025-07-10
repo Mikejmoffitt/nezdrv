@@ -3,7 +3,6 @@
 ;
 
 start:
-	ld	sp, StackEnd ; 3 bytes
 	call	opn_init
 	; Clear work RAM
 	ld	hl, TmpStart

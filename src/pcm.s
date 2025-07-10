@@ -10,7 +10,7 @@ pcm_service macro
 +:
 	endm
 
-	ORG	08h
+	org	08h
 pcm_poll:
 	; Ack timer A
 	ld	a, OPN_REG_TCTRL
