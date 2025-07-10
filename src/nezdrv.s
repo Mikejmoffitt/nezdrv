@@ -5,7 +5,6 @@
 	include	"src/memmap.inc"
 
 	include	"src/avm.inc"
-	include	"src/irq.inc"
 	include	"src/opn.inc"
 	include	"src/trackdata.inc"
 	org	0000h
