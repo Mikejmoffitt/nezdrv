@@ -1,6 +1,9 @@
 ;
 ; Hushes all channels and sets some basic control values.
 ;
+
+OPN_TB_DEFAULT = 2Fh
+
 opn_init:
 	ld	hl, .init_data
 	ld	de, OPN_DATA0
@@ -21,8 +24,8 @@ opn_init:
 .init_data:
 	db	OPN_REG_TA_HI, 00h
 	db	OPN_REG_TA_LO, 00h
-	db	OPN_REG_TB,    040h
-	db	OPN_REG_TCTRL, 2Fh  ; TB reset, enable, and load
+	db	OPN_REG_TB,    80h
+	db	OPN_REG_TCTRL, OPN_TB_DEFAULT  ; TB reset, enable, and load
 	db	OPN_REG_KEYON, 00h  ; all notes key off
 	db	OPN_REG_KEYON, 01h
 	db	OPN_REG_KEYON, 02h
@@ -32,19 +35,17 @@ opn_init:
 .init_data_end:
 
 opn_wait_timer_b:
-	ld	de, OPN_DATA0
+	ld	de, OPN_BASE
 -:
 	ld	a, (de)
 	and	a, 02h
 	jr	z, -
-	dec	de  ; point to addr
 	ld	a, OPN_REG_TCTRL
 	ld	(de), a
-	ld	a, 2Fh
 	inc	de  ; point to data
+	ld	a, OPN_TB_DEFAULT
 	ld	(de), a
 	ret
-	; Acknowledge timer
 
 
 opn_keyon_delay_sub:

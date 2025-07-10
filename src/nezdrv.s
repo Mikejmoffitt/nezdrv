@@ -3,9 +3,10 @@
 
 	include	"src/macro.inc"
 	include	"src/memmap.inc"
+z
 	include	"src/avm.inc"
 	include	"src/opn.inc"
-	include	"src/opnpatch.inc"
+	include	"src/trackdata.inc"
 
 vbl_wait macro
 	ld	a, 01h
@@ -108,8 +109,8 @@ soft_start:
 	ei
 
 main:
-;	call	opn_wait_timer_b  ; TODO
-	vbl_wait
+	call	opn_wait_timer_b  ; TODO
+;	vbl_wait
 	call	avm_poll
 ;	call	keydown_test_func
 	jr	main
@@ -117,8 +118,10 @@ main:
 ;
 ; Test track. It's Freddie Hubbard's "Straight Life".
 ;
+
+MELODY_LENGTH = 6
 avm_data_testtrk:
-	db	AVM_TIMER, 80
+	db	AVM_TIMER, 0C0h
 	db	AVM_OCT, 3*8
 	db	AVM_JUMP
 	dw	.melody
@@ -145,11 +148,18 @@ avm_data_testtrk:
 	db	AVM_NOTE_As
 	db	AVM_NOTE_B
 	db	AVM_OCT_UP, AVM_NOTE_C | AVM_NOTE_REST_FLAG, 48
+
 .melody:
-	db	AVM_LENGTH, 7
+	db	AVM_LENGTH, MELODY_LENGTH
 	db	AVM_OCT, 3*8
 .loop:
-	db	AVM_NOTE_C 
+	db	AVM_CALL
+	dw	.melody_sub
+	db	AVM_JUMP
+	dw	.loop
+
+.melody_sub:
+	db	AVM_NOTE_C
 	db	AVM_REST, 0
 	db	AVM_NOTE_E
 	db	AVM_NOTE_G
@@ -167,28 +177,27 @@ avm_data_testtrk:
 	db	AVM_OCT_DOWN, AVM_NOTE_Bb
 	db	AVM_REST, 0
 	db	AVM_OCT_UP
-	db	AVM_JUMP
-	dw	.loop
+	dw	AVM_RET
 
 avm_data_testtrk2:
 	db	AVM_OCT, 5*8
-	db	AVM_LENGTH, 7
+	db	AVM_LENGTH, MELODY_LENGTH
 .loop:
-	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, 7*3
+	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, MELODY_LENGTH*3
 	db	AVM_NOTE_Eb
 	db	AVM_NOTE_E
 	db	AVM_NOTE_D
-	db	AVM_NOTE_C | AVM_NOTE_REST_FLAG, 7*2
+	db	AVM_NOTE_C | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
 
-	db	AVM_NOTE_D | AVM_NOTE_REST_FLAG, 7*3
+	db	AVM_NOTE_D | AVM_NOTE_REST_FLAG, MELODY_LENGTH*3
 	db	AVM_NOTE_C
 	db	AVM_NOTE_D
 	db	AVM_NOTE_C, AVM_OCT_DOWN
-	db	AVM_NOTE_Bb | AVM_NOTE_REST_FLAG, 7*2
-	db	AVM_NOTE_Bb | AVM_NOTE_REST_FLAG, 7*2
+	db	AVM_NOTE_Bb | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
+	db	AVM_NOTE_Bb | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
 	db	AVM_OCT_UP
-	db	AVM_NOTE_C | AVM_NOTE_REST_FLAG, 7*11
-	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, 7*2
+	db	AVM_NOTE_C | AVM_NOTE_REST_FLAG, MELODY_LENGTH*11
+	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, MELODY_LENGTH*2
 	db	AVM_NOTE_Eb
 	db	AVM_JUMP
 	dw	.loop

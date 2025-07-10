@@ -224,6 +224,21 @@ avm_poll:
 	jp	.exec
 
 .avm_op_ret:      ;  2
+	; decrement stack pointer, and place contents in pc.
+	ld	h, (iy+AVM.stack_ptr+1)
+	ld	l, (iy+AVM.stack_ptr)
+	dec	hl
+	dec	hl
+	ld	(iy+AVM.stack_ptr+1), h
+	ld	(iy+AVM.stack_ptr), l
+	ld	a, (hl)
+	ld	(iy+AVM.pc+1), a
+	inc	hl
+	ld	a, (hl)
+	ld	(iy+AVM.pc), a
+	jp	.exec
+
+
 .avm_op_loopset:  ;  3
 .avm_op_loopend:  ;  4
 	; TODO
