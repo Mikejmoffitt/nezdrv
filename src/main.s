@@ -26,15 +26,15 @@ start:
 	call	avm_set_head
 
 	; Set up channel 0 with a patch
-	ld	hl, opnp_test
-	ld	a, 0
-	call	opn_set_patch
-	ld	hl, opnp_test
-	ld	a, 1
-	call	opn_set_patch
-	ld	hl, opnp_test
-	ld	a, 2
-	call	opn_set_patch
+	;ld	hl, opnp_test
+	;ld	a, 0
+	;call	opn_set_patch
+	;ld	hl, opnp_test
+	;ld	a, 1
+	;call	opn_set_patch
+	;ld	hl, opnp_test
+	;ld	a, 2
+	;call	opn_set_patch
 
 main:
 	; Wait for timer events.

@@ -18,26 +18,28 @@ AVM_REST_DEFAULT = 12
 
 ; General generic channel VM state
 AVM struct
+; Intrinsic channel properties
 status:     ds 1
 channel_id: ds 1
 
+; Control flow
 pc:         ds 2
-
 loop_ptr:   ds 2
 loop_cnt:   ds 1
-
 rest_val:   ds 1
 rest_cnt:   ds 1
-
-tl:         ds 4  ; TL values from when instrument was set.
-volume:     ds 1  ; really attenuation, summed with tl on key-on.
-pan:        ds 1  ; pan/ams/pms register.
-octave:     ds 1  ; stored as multiples of 8 to match register.
-; the stack grows forwards.
-stack:      ds AVM_STACK_DEPTH*2
 stack_ptr:  ds 2
+stack:      ds AVM_STACK_DEPTH*2
 
+; Note properties
+volume:     ds 1  ; really attenuation, summed with tl on key-on.
+octave:     ds 1  ; stored as multiples of 8 to match register.
+
+; OPN-specific state
 patch_ptr:  ds 2
+tl:         ds 4  ; TL values from when instrument was set.
+pan:        ds 1  ; pan/ams/pms register.
+
 AVM endstruct
 
 
@@ -72,7 +74,7 @@ AVM_OCT      = 3*8
 AVM_OCT_UP   = 3*9
 ; Decrement octave
 AVM_OCT_DOWN = 3*10
-; Set instrument  +1 byte
+; Set instrument  +1 byte = instrument (multiple of 2)
 AVM_INST     = 3*11
 ; Set volume (inverse TL) +1 byte
 AVM_VOL      = 3*12

@@ -7,6 +7,7 @@ MELODY_LENGTH = 6
 avm_data_testtrk:
 	db	AVM_TIMER, 0C0h
 	db	AVM_OCT, 3*8
+	db	AVM_INST, 2
 	db	AVM_JUMP
 	dw	.melody
 	; octave sweep
@@ -68,6 +69,7 @@ avm_data_testtrk2:
 	db	AVM_PAN, OPN_PAN_R
 	db	AVM_OCT, 5*8
 	db	AVM_LENGTH, MELODY_LENGTH
+	db	AVM_INST, 2
 .loop:
 	db	AVM_CALL
 	dw	.pt1_sub

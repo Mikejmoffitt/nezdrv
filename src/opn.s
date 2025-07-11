@@ -50,6 +50,7 @@ opn_set_datwalk_4op	macro	regno
 	ld	a, regno
 	call	.write_4op_sub
 	endm
+
 ; hl = patch data
 ; a = channel num (0 - 6; '3' and '7' do not exist)
 opn_set_patch:

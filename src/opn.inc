@@ -76,14 +76,14 @@ opn_set_base_ix macro
 
 	; FM Patch data
 OPNPATCH struct
-	con_fb:   ds 1  ; B0h
-	mul_dt:   ds 4  ; 30h
-	tl:       ds 4  ; 40h
-	ar_ks:    ds 4  ; 50h
-	dr_am:    ds 4  ; 60h
-	sr:       ds 4  ; 70h
-	rr_sl:    ds 4  ; 80h
-	ssg_eg:   ds 4  ; 90h
+con_fb:   ds 1  ; B0h
+mul_dt:   ds 4  ; 30h
+tl:       ds 4  ; 40h
+ar_ks:    ds 4  ; 50h
+dr_am:    ds 4  ; 60h
+sr:       ds 4  ; 70h
+rr_sl:    ds 4  ; 80h
+ssg_eg:   ds 4  ; 90h
 OPNPATCH endstruct
 
 ; Macros for making test instruments

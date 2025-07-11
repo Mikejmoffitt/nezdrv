@@ -3,9 +3,7 @@
 ;
 TmpStart:
 
-	align	20h
 AvmGlobal:      ds AVMG.len
-	align	20h
 AvmOpnFx:       ds AVM.len * OPN_FX_CHANNEL_COUNT
 AvmOpn:         ds AVM.len * OPN_CHANNEL_COUNT
 PsgChFx:        ds AVM.len * PSG_FX_CHANNEL_COUNT

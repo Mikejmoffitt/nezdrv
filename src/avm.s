@@ -6,14 +6,13 @@
 ; Default data
 ;
 avm_data_nulltrk:
-	db	AVM_JUMP
-	dw	avm_data_nulltrk
+	db	AVM_STOP
 
 avmg_data_default_instrument_list:
+	dw	0
 	dw	avm_data_default_patch
 
-avm_data_default_patch:
-	;          con, fb
+avm_data_default_patch:  ; sega bass
 	opnp_con_fb  0,  1
 	opnp_mul_dt  7,  0  ; 0
 	opnp_mul_dt  0,  3  ; 2
@@ -280,7 +279,7 @@ avm_poll:
 	ld	a, (hl)
 	inc	hl
 	ld	(ix+1), a
-	jr	.instruction_finished
+	jp	.instruction_finished
 
 
 ; Sets the default rest value associated with notes.
@@ -288,7 +287,7 @@ avm_poll:
 	ld	a, (hl)
 	ld	(iy+AVM.rest_val), a
 	inc	hl
-	jr	.instruction_finished
+	jp	.instruction_finished
 
 ; Consumes the following byte as a rest count value.
 .avm_op_rest:     ;  7
@@ -309,27 +308,59 @@ avm_poll:
 	; fall-through
 .avm_op_oct_commit_a:
 	ld	(iy+AVM.octave), a
-	jr	.instruction_finished
+	jp	.instruction_finished
 
 .avm_op_oct_up:   ;  9
 	ld	a, (iy+AVM.octave)
 	cp	7*8  ; octave already == 7?
-	jr	nc, .instruction_finished
+	jp	nc, .instruction_finished
 	add	a, 8
 	jr	.avm_op_oct_commit_a
 
 .avm_op_oct_down: ; 10
 	ld	a, (iy+AVM.octave)
 	and	a  ; octave already at 0?
-	jr	z, .instruction_finished
+	jp	z, .instruction_finished
 	sub	a, 8
 	jr	.avm_op_oct_commit_a
 
-.avm_op_inst:     ; 11
+.avm_op_inst:     ;
+	; de takes instrument ID / offset into list
+	ld	d, 00h
+	ld	e, (hl)
 	inc	hl
-	; TODO
-	; read global instrument table, pull by adding offset from (hl)
-	jr	.instruction_finished
+	push	hl
+	ld	ix, AvmGlobal
+	ld	h, (ix+AVMG.instrument_list_ptr+1)
+	ld	l, (ix+AVMG.instrument_list_ptr)
+	add	hl, de  ; += instrument id offset
+	; de take the patch address, also stored in the ch state
+	ld	e, (hl)
+	ld	(iy+AVM.patch_ptr+0), e
+	inc	hl
+	ld	d, (hl)
+	ld	(iy+AVM.patch_ptr+1), d
+	; pull TL data.
+	ld	hl, OPNPATCH.tl
+	add	hl, de  ; hl := source TL data
+	ld	a, (hl)
+	ld	(iy+AVM.tl+0), a
+	inc	hl
+	ld	a, (hl)
+	ld	(iy+AVM.tl+1), a
+	inc	hl
+	ld	a, (hl)
+	ld	(iy+AVM.tl+2), a
+	inc	hl
+	ld	a, (hl)
+	ld	(iy+AVM.tl+3), a
+	; write the patch to the OPN
+	ld	de, 10000h-OPNPATCH.tl-3
+	add	hl, de  ; wind hl back to the patch start
+	ld	a, (iy+AVM.channel_id)
+	call	opn_set_patch
+	pop	hl
+	jp	.instruction_finished
 
 .avm_op_vol:      ; 12
 	ld	a, (hl)
