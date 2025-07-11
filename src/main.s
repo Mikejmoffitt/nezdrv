@@ -18,29 +18,17 @@ start:
 	;
 	; TEST DATA
 	;
-	ld	iy, AvmOpn+AVM.len*0
-	ld	de, avm_data_test_bass
-	call	avm_set_head
-	ld	iy, AvmOpn+AVM.len*3
-	ld	de, avm_data_test_bass_echo
-	call	avm_set_head
-	ld	iy, AvmOpn+AVM.len*1
-	ld	de, avm_data_test_lead
-	call	avm_set_head
-	ld	iy, AvmOpn+AVM.len*2
-	ld	de, avm_data_test_lead_echo
-	call	avm_set_head
 
-	; Set up channel 0 with a patch
-	;ld	hl, opnp_test
-	;ld	a, 0
-	;call	opn_set_patch
-	;ld	hl, opnp_test
-	;ld	a, 1
-	;call	opn_set_patch
-	;ld	hl, opnp_test
-	;ld	a, 2
-	;call	opn_set_patch
+set_opn_track macro chid, avmptr
+	ld	iy, AvmOpn+AVM.len*chid
+	ld	de, avmptr
+	call	avm_set_head
+	endm
+
+	set_opn_track 0, avm_data_test_bass
+	set_opn_track 1, avm_data_test_bass_echo
+	set_opn_track 4, avm_data_test_lead
+	set_opn_track 5, avm_data_test_lead_echo
 
 main:
 	; Wait for timer events.

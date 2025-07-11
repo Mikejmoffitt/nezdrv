@@ -415,12 +415,13 @@ avm_poll:
 .avm_op_pan_commit_a:
 	or	a, (hl)
 	inc	hl
+	ld	b, a
+	ld	(iy+AVM.pan), a
 	ld	a, (iy+AVM.channel_id)
 	opn_set_base_ix
 	add	a, OPN_REG_MOD
 	ld	(ix+0), a
-	ld	a, (iy+AVM.pan)
-	ld	(ix+1), a
+	ld	(ix+1), b  ; final pan data from before
 	jr	.instruction_finished
 
 .avm_op_pms:      ; 14
@@ -438,7 +439,7 @@ avm_poll:
 
 .avm_op_stop:     ; 16
 	ld	(iy+AVM.status), AVM_STATUS_INACTIVE
-	jr	.instruction_finished
+	ret
 
 .instruction_finished:
 	ld	(iy+AVM.pc+1), h
@@ -465,9 +466,13 @@ avm_poll:
 	ld	a, (iy+AVM.channel_id)
 	opn_set_base_ix
 	ld	c, a  ; Keep channel offset around in C.
-	; First key off
-	ld	(ix+0), OPN_REG_KEYON
-	ld	(ix+1), c
+
+	; First key off - KEYON reg lives in the first half always.
+	ld	hl, OPN_ADDR0
+	ld	(hl), OPN_REG_KEYON
+	inc	hl
+	ld	a, (iy+AVM.channel_id)
+	ld	(hl), a
 ;	call	opn_keyon_delay_sub
 
 	; High frequency + octave.
@@ -535,10 +540,12 @@ tlmod macro opno
 	tlmod	3
 
 	; The key on.
-	ld	a, c
-	ld	(ix+0), OPN_REG_KEYON
-	or	a, 0F0h
-	ld	(ix+1), a  ; turn on all operators
+	ld	hl, OPN_ADDR0
+	ld	(hl), OPN_REG_KEYON
+	inc	hl
+	ld	a, (iy+AVM.channel_id)
+	or	a, 0F0h  ; all operators.
+	ld	(hl), a
 
 	; Finally - if the note had bit 5 set (20h), then rest with the specified value.
 	pop	hl

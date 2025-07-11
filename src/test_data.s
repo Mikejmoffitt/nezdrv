@@ -18,14 +18,16 @@ avm_data_test_bass_init_sub:
 avm_data_test_bass_echo:
 	db	AVM_CALL
 	dw	avm_data_test_bass_init_sub
+	db	AVM_PAN, OPN_PAN_R
 	db	AVM_VOL, 03h
-	db	AVM_REST, 3*MELODY_LENGTH
+	db	AVM_REST, MELODY_LENGTH/2
 	db	AVM_JUMP
 	dw	avm_data_test_bass.loop
 
 avm_data_test_bass:
 	db	AVM_CALL
 	dw	avm_data_test_bass_init_sub
+	db	AVM_PAN, OPN_PAN_L
 	db	AVM_VOL, 00h
 .loop:
 	db	AVM_CALL
@@ -58,7 +60,6 @@ avm_data_test_bass:
 ;
 ;
 avm_data_test_lead_init_sub:
-	db	AVM_TIMER, 0C0h
 	db	AVM_INST, 0
 	db	AVM_LENGTH, MELODY_LENGTH
 	db	AVM_OCT, 5*8
@@ -67,20 +68,23 @@ avm_data_test_lead_init_sub:
 avm_data_test_lead_echo:
 	db	AVM_CALL
 	dw	avm_data_test_lead_init_sub
+	db	AVM_PAN, OPN_PAN_L
 	db	AVM_VOL, 08h
-	db	AVM_REST, 2*MELODY_LENGTH
+	db	AVM_REST, MELODY_LENGTH
 	db	AVM_JUMP
 	dw	avm_data_test_lead.loop
 
 avm_data_test_lead:
 	db	AVM_CALL
 	dw	avm_data_test_lead_init_sub
+	db	AVM_PAN, OPN_PAN_R
 	db	AVM_VOL, 00h
 .loop:
 	db	AVM_LOOPSET, 2
 	db	AVM_CALL
 	dw	.pt1_sub
-	db	AVM_LOOPEND
+	db	AVM_CALL
+	dw	.pt1_sub
 	db	AVM_CALL
 	dw	.pt2_sub
 	db	AVM_JUMP
