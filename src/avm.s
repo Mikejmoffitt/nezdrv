@@ -193,8 +193,8 @@ avm_poll:
 	ld	a, (hl)
 	inc	hl
 	; If A is >= 80h, it's a note, and is handled differently.
-	bit	7, a
-	jp	nz, .handle_note
+	and	a
+	jp	m, .handle_note
 	; Else, it's a control instruction.
 	jptbl_dispatch
 
