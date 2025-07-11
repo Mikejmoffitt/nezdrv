@@ -9,10 +9,41 @@ avm_data_nulltrk:
 	db	AVM_STOP
 
 avmg_data_default_instrument_list:
-	dw	0
-	dw	avm_data_default_patch
+	dw	avmg_inst_lead
+	dw	avmg_inst_bass
 
-avm_data_default_patch:  ; sega bass
+avmg_inst_lead:
+	opnp_con_fb  2,  7
+	opnp_mul_dt  2,  0  ; 0
+	opnp_mul_dt  0,  0  ; 2
+	opnp_mul_dt  0,  0  ; 1
+	opnp_mul_dt  1,  0  ; 3
+	opnp_tl     27      ; 0
+	opnp_tl     63      ; 2
+	opnp_tl      9      ; 1
+	opnp_tl      1      ; 3
+	opnp_ar_ks  31,  0  ; 0
+	opnp_ar_ks  31,  0  ; 2
+	opnp_ar_ks  31,  0  ; 1
+	opnp_ar_ks  31,  0  ; 3
+	opnp_dr_am   0,  0  ; 0
+	opnp_dr_am   0,  0  ; 2
+	opnp_dr_am   0,  0  ; 1
+	opnp_dr_am  15,  0  ; 3
+	opnp_sr      0      ; 0
+	opnp_sr      0      ; 2
+	opnp_sr      0      ; 1
+	opnp_sr     12      ; 3
+	opnp_rr_sl   0,  0  ; 0
+	opnp_rr_sl   0,  0  ; 2
+	opnp_rr_sl   0,  0  ; 1
+	opnp_rr_sl  24,  3  ; 3
+	opnp_ssg_eg  0      ; 0
+	opnp_ssg_eg  0      ; 2
+	opnp_ssg_eg  0      ; 1
+	opnp_ssg_eg  0      ; 3
+
+avmg_inst_bass:
 	opnp_con_fb  0,  1
 	opnp_mul_dt  7,  0  ; 0
 	opnp_mul_dt  0,  3  ; 2
@@ -49,7 +80,7 @@ avm_init:
 	ld	hl, .channel_id_tbl
 	; Initialize channels
 	ld	b, TOTAL_CHANNEL_COUNT
-	ld	iy, AvmOpn
+	ld	iy, AvmStart
 -:
 	ld	a, (hl)
 	push	hl
@@ -110,10 +141,6 @@ avm_init:
 	ld	(iy+AVM.channel_id), a
 	; channel default
 	ld	(iy+AVM.rest_val), AVM_REST_DEFAULT
-	; patch default
-	ld	hl, avm_data_default_patch
-	ld	(iy+AVM.patch_ptr+1), h
-	ld	(iy+AVM.patch_ptr), l
 	; default to both outputs, no modulation
 	ld	(iy+AVM.pan), OPN_PAN_L|OPN_PAN_R
 
@@ -135,7 +162,7 @@ avm_set_head:
 avm_poll:
 	; Initialize channels
 	ld	b, TOTAL_CHANNEL_COUNT
-	ld	iy, AvmOpn
+	ld	iy, AvmStart
 -:
 	push	bc
 	; Skip inactive channels
@@ -340,6 +367,19 @@ avm_poll:
 	inc	hl
 	ld	d, (hl)
 	ld	(iy+AVM.patch_ptr+1), d
+	; pull con data.
+	IF	OPNPATCH.con_fb == 0  ; this is how I avoid self-owning later
+	ld	a, (de)  ; OPNPATCh begins with con_fb
+	ELSE
+	ld	hl, OPNPATCH.con_fb
+	add	hl, de  ; hl := source fb data
+	ld	a, (hl)
+	ENDIF  ; OPNPATCH.con_fb == 0
+	and	a, 07h
+	ld	b, a
+	add	a, b
+	add	a, b  ; *= 3
+	ld	(iy+AVM.tl_conoffs), a
 	; pull TL data.
 	ld	hl, OPNPATCH.tl
 	add	hl, de  ; hl := source TL data
@@ -355,7 +395,7 @@ avm_poll:
 	ld	a, (hl)
 	ld	(iy+AVM.tl+3), a
 	; write the patch to the OPN
-	ld	de, 10000h-OPNPATCH.tl-3
+	ld	de, 10000h-OPNPATCH.tl-3  ; why is there no 16-bit sub???
 	add	hl, de  ; wind hl back to the patch start
 	ld	a, (iy+AVM.channel_id)
 	call	opn_set_patch
@@ -457,13 +497,48 @@ avm_poll:
 	ld	a, (hl)
 	ld	(ix+1), a
 
+tlmod macro opno
+	ld	a, (iy+AVM.tl+opno)
+	add	a, (iy+AVM.volume)
+	cp	80h
+	jr	c, +
+	ld	a, 7Fh
++:
+	ld	d, a
+	ld	a, c
+	add	a, OPN_REG_TL+(4*opno)
+	ld	(ix+0), a
+	ld	(ix+1), d  ; updated TL value
+	endm
+
+	; Modify tl. Must leave B alone for use afterwards.
+	ld	a, (iy+AVM.tl_conoffs)
+	jptbl_dispatch
+	jp	.note_volmod_op4
+	jp	.note_volmod_op4
+	jp	.note_volmod_op4
+	jp	.note_volmod_op4
+	jp	.note_volmod_op24
+	jp	.note_volmod_op234
+	jp	.note_volmod_op234
+	jr	.note_volmod_op1234
+.note_volmod_op24:
+	tlmod	1
+	jr	.note_volmod_op4
+.note_volmod_op1234:
+	tlmod	0
+.note_volmod_op234:
+	tlmod	1
+.note_volmod_op34:
+	tlmod	2
+.note_volmod_op4:
+	tlmod	3
+
 	; The key on.
-	ld	a, c  ; Keep channel offset around in C.
+	ld	a, c
 	ld	(ix+0), OPN_REG_KEYON
 	or	a, 0F0h
 	ld	(ix+1), a  ; turn on all operators
-
-	; TODO: Reapply TL with volume argument applied.
 
 	; Finally - if the note had bit 5 set (20h), then rest with the specified value.
 	pop	hl
@@ -473,7 +548,7 @@ avm_poll:
 	; Else just adopt the default rest value.
 	ld	a, (iy+AVM.rest_val)
 	ld	(iy+AVM.rest_cnt), a
-	jr	.instruction_finished
+	jp	.instruction_finished
 
 .freq_tbl:
 	db	(OPN_NOTE_C  >> 8) & 07h, OPN_NOTE_C  & 0FFh

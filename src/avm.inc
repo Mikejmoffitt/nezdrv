@@ -7,7 +7,7 @@ OPN_CHANNEL_COUNT = 6
 PSG_CHANNEL_COUNT = 4
 OPN_FX_CHANNEL_COUNT = 3
 PSG_FX_CHANNEL_COUNT = 2
-AVM_STACK_DEPTH = 9
+AVM_STACK_DEPTH = 5
 TOTAL_CHANNEL_COUNT = OPN_CHANNEL_COUNT+PSG_CHANNEL_COUNT+OPN_FX_CHANNEL_COUNT+PSG_FX_CHANNEL_COUNT
 
 AVM_STATUS_INACTIVE = 0
@@ -37,8 +37,11 @@ octave:     ds 1  ; stored as multiples of 8 to match register.
 
 ; OPN-specific state
 patch_ptr:  ds 2
+tl_conoffs: ds 1  ; pre-multiplied jump table offset for tl setting (patch con * 3)
 tl:         ds 4  ; TL values from when instrument was set.
 pan:        ds 1  ; pan/ams/pms register.
+
+pad:        ds 1
 
 AVM endstruct
 
