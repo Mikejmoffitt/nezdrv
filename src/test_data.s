@@ -7,6 +7,8 @@ TEST_LENGTH = 6
 TEST_TIMER = 0C0h
 
 track_test:
+	dw	0           ; PCM Rate timer
+	db	TEST_TIMER  ; tempo timer
 	dw	.track_list
 	dw	.instruments_list
 .track_list:
@@ -64,7 +66,7 @@ track_test:
 	opnp_tl     31      ; 0
 	opnp_tl     17      ; 2
 	opnp_tl     43      ; 1
-	opnp_tl      7      ; 3
+	opnp_tl      2      ; 3
 	opnp_ar_ks  31,  2  ; 0
 	opnp_ar_ks  31,  2  ; 2
 	opnp_ar_ks  31,  2  ; 1
@@ -91,7 +93,6 @@ track_test:
 ;
 ;
 avm_data_test_bass_init_sub:
-	db	AVM_TIMER, TEST_TIMER
 	db	AVM_INST, 2
 	db	AVM_LENGTH, TEST_LENGTH
 	db	AVM_OCT, 3*8
@@ -100,16 +101,14 @@ avm_data_test_bass_init_sub:
 avm_data_test_bass_echo:
 	db	AVM_CALL
 	dw	avm_data_test_bass_init_sub
-	db	AVM_PAN, OPN_PAN_R
-	db	AVM_VOL, 03h
-	db	AVM_REST, TEST_LENGTH/2
+	db	AVM_VOL, 09h
+	db	AVM_REST, 3*TEST_LENGTH/2
 	db	AVM_JUMP
 	dw	avm_data_test_bass.loop
 
 avm_data_test_bass:
 	db	AVM_CALL
 	dw	avm_data_test_bass_init_sub
-	db	AVM_PAN, OPN_PAN_L
 	db	AVM_VOL, 00h
 .loop:
 ;	db	AVM_CALL
@@ -154,16 +153,15 @@ avm_data_test_bass:
 ;
 ;
 avm_data_test_lead_init_sub:
-	db	AVM_TIMER, TEST_TIMER
 	db	AVM_INST, 0
 	db	AVM_LENGTH, TEST_LENGTH
 	db	AVM_OCT, 5*8
+	db	AVM_SLIDE, 50
 	db	AVM_RET
 
 avm_data_test_lead_echo:
 	db	AVM_CALL
 	dw	avm_data_test_lead_init_sub
-	db	AVM_PAN, OPN_PAN_L
 	db	AVM_VOL, 12h
 	db	AVM_REST, TEST_LENGTH
 	db	AVM_JUMP

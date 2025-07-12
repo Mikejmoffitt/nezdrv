@@ -39,6 +39,20 @@ opn_keyon_delay_sub:
 	pop	ix
 	ret
 
+opn_set_base_de_sub:
+	opn_set_base_de
+	ret
+
+opn_wait_sub:
+	ld	hl, OPN_BASE
+.wait:
+	ld	a, (hl)
+	and	a
+	ret	p
+	jr	.wait
+
+
+
 ; Writes address register using c as the block offset
 ; ix = OPN_BASE
 opn_set_datwalk	macro	regno

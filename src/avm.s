@@ -52,8 +52,7 @@ avm_init:
 	; mark channel offset
 	pop	af
 	ld	(iy+AVM.channel_id), a
-	call	avm_reset_sub
-	ret
+	; fall-through to avm_reset_sub
 
 ; iy = avm head
 ; clobbers hl
@@ -77,6 +76,8 @@ avm_reset_sub:
 	ld	(iy+AVM.rest_val), AVM_REST_DEFAULT
 	; default to both outputs, no modulation
 	ld	(iy+AVM.pan), OPN_PAN_L|OPN_PAN_R
+	; No portamento for first note.
+	ld	(iy+AVM.now_block), 80h
 	ret
 
 avm_bgm_reset:
@@ -89,6 +90,11 @@ avm_bgm_reset:
 	djnz	-
 	ret
 
+; ------------------------------------------------------------------------------
+;
+; Track Load
+;
+; ------------------------------------------------------------------------------
 avm_load_track:
 	call	avm_bgm_reset
 	; Set up tracks
@@ -122,6 +128,21 @@ avm_load_track:
 .skip_track:
 	ld	de, AVM.len
 	add	iy, de
+	djnz	-
+	; Set the timers.
+	ld	hl, TrackBuffer+TRACKINFO.ta
+	ld	de, OPN_ADDR0
+	ld	c, OPN_REG_TA_HI
+	ld	b, 3
+-:
+	ld	a, c
+	ld	(de), a  ; addr
+	inc	de
+	ld	a, (hl)
+	ld	(de), a  ; data
+	dec	de
+	inc	hl
+	inc	c
 	djnz	-
 	ret
 
@@ -201,7 +222,7 @@ avm_exec_opn:
 	jp	avm_op_ret      ;  2
 	jp	avm_op_loopset  ;  3
 	jp	avm_op_loopend  ;  4
-	jp	avm_op_timer    ;  5
+	jp	avm_op_tempo    ;  5
 	jp	avm_op_length   ;  6
 	jp	avm_op_rest     ;  7
 	jp	avm_op_oct      ;  8
@@ -216,6 +237,7 @@ avm_exec_opn:
 	jp	avm_op_stop     ; 17
 	jp	avm_op_note_off ; 18
 	jp	avm_op_slide    ; 19
+	jp	avm_op_pcmrate  ; 20
 
 ; ------------------------------------------------------------------------------
 
@@ -304,7 +326,7 @@ avm_op_loopend:  ;  4
 +:
 	jp	avm_op_finished
 
-avm_op_timer:    ;  5
+avm_op_tempo:    ;  5
 	ld	ix, OPN_BASE
 	ld	(ix+0), OPN_REG_TB
 	ld	a, (hl)
@@ -380,9 +402,7 @@ avm_op_inst:     ;
 	ld	a, (hl)
 	ENDIF  ; OPNPATCH.con_fb == 0
 	and	a, 07h
-	ld	b, a
-	add	a, b
-	add	a, b  ; *= 3
+	add	a, a
 	ld	(iy+AVM.tl_conoffs), a
 	; pull TL data.
 	ld	hl, OPNPATCH.tl
@@ -422,7 +442,7 @@ avm_op_pan_commit_a:
 	ld	b, a
 	ld	(iy+AVM.pan), a
 	ld	a, (iy+AVM.channel_id)
-	opn_set_base_de
+	call	opn_set_base_de_sub
 	add	a, OPN_REG_MOD
 	ld	(de), a
 	inc	de
@@ -441,7 +461,14 @@ avm_op_ams:      ; 15
 	jr	avm_op_pan_commit_a
 
 avm_op_opn_reg:  ; 16
-	; TODO
+	call	opn_set_base_de_sub
+	add	a, (hl)
+	inc	hl
+	ld	(de), a
+	inc	de
+	ld	a, (hl)
+	ld	(de), a
+	inc	hl
 	jp	avm_op_finished
 
 avm_op_stop:     ; 18
@@ -453,12 +480,19 @@ avm_op_note_off: ; 18
 	ld	(OPN_ADDR0), a  ; addr
 	ld	a, (iy+AVM.channel_id)
 	ld	(OPN_DATA0), a  ; data
+	ld	(iy+AVM.now_block), 80h  ; Mark no portamento
 	jp	avm_op_finished
 
 avm_op_slide:    ; 19
 	ld	a, (hl)
 	inc	hl
 	ld	(iy+AVM.portamento), a
+	jp	avm_op_finished
+
+avm_op_pcmrate:  ; 20
+	inc	hl
+	inc	hl
+
 	jp	avm_op_finished
 
 ; ------------------------------------------------------------------------------
@@ -511,13 +545,13 @@ tlmod macro opno
 	; Modify tl. Must leave B alone for use afterwards.
 	ld	a, (iy+AVM.tl_conoffs)
 	jptbl_dispatch
-	jp	.note_volmod_op4
-	jp	.note_volmod_op4
-	jp	.note_volmod_op4
-	jp	.note_volmod_op4
-	jp	.note_volmod_op24
-	jp	.note_volmod_op234
-	jp	.note_volmod_op234
+	jr	.note_volmod_op4
+	jr	.note_volmod_op4
+	jr	.note_volmod_op4
+	jr	.note_volmod_op4
+	jr	.note_volmod_op24
+	jr	.note_volmod_op234
+	jr	.note_volmod_op234
 	jr	.note_volmod_op1234
 .note_volmod_op24:
 	tlmod	1
@@ -551,6 +585,20 @@ tlmod macro opno
 	inc	hl
 	ld	a, (hl)
 	ld	(iy+AVM.tgt_freq+1), a
+
+	;
+	; If note was off before, skip portamento.
+	;
+	ld	a, (iy+AVM.now_block)
+	and	a
+	jp	p, +
+	ld	a, (iy+AVM.tgt_block)
+	ld	(iy+AVM.now_block), a
+	ld	a, (iy+AVM.tgt_freq)
+	ld	(iy+AVM.now_freq), a
+	ld	a, (iy+AVM.tgt_freq+1)
+	ld	(iy+AVM.now_freq+1), a
++:
 
 	;
 	; Optional rest duration byte
@@ -742,7 +790,7 @@ avm_update_output:
 ; Writes frequency to fn registers.
 avm_express_freq_sub:
 	ld	a, (iy+AVM.channel_id)
-	opn_set_base_de
+	call	opn_set_base_de_sub
 	ld	c, a
 
 	; Hi reg sel

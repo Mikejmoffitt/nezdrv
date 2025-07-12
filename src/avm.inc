@@ -23,6 +23,8 @@ AVM_STATUS_MUTED = 2
 
 AVM_REST_DEFAULT = 12
 
+AVM_BLOCK_PORTAMENTO_SKIP_FLAG = 80h
+
 ; General generic channel VM state
 AVM struct
 ; Intrinsic channel properties
@@ -43,23 +45,26 @@ volume:      ds 1  ; really attenuation, summed with tl on key-on.
 octave:      ds 1  ; stored as multiples of 8 to match block register.
 portamento:  ds 1  ; rate of change for target_freq. If 0, it is instant.
 
-; Current note play variables
+; Portamento state
 now_freq:    ds 2
-now_block:   ds 1
+now_block:   ds 1  ; if negative, immediately adopts the target.
 tgt_freq:    ds 2
 tgt_block:   ds 1
+; Key down stuff
 key_pending: ds 1  ; if true, awaiting a key on event.
+
+; Vibrato
 vib_mag:     ds 1  ; vibrato magnitude, 0-F.
 vib_speed:   ds 1
 vib_cnt:     ds 1
 
 ; OPN-specific state
 patch_ptr:   ds 2
-tl_conoffs:  ds 1  ; pre-multiplied jump table offset for tl setting (patch con * 3)
+tl_conoffs:  ds 1  ; pre-multiplied jr table offset for tl setting (patch con * 2)
 tl:          ds 4  ; TL values from when instrument was set.
 pan:         ds 1  ; pan/ams/pms register.
 
-pad:         ds 6pc+
+pad:         ds 6
 
 AVM endstruct
 
@@ -78,8 +83,8 @@ AVM_RET      = 3*2
 AVM_LOOPSET  = 3*3
 ; End loop point (decrement and jump to loop ptr if nonzero)
 AVM_LOOPEND  = 3*4
-; Set timer  value +1 byte
-AVM_TIMER    = 3*5
+; Set timer B value +1 byte
+AVM_TEMPO    = 3*5
 ; Set note length (in note ticks) +1 byte
 AVM_LENGTH   = 3*6
 ; Rest
@@ -108,6 +113,8 @@ AVM_STOP     = 3*17
 AVM_NOTE_OFF = 3*18
 ; Set portamento
 AVM_SLIDE    = 3*19
+; Set timer A value +2 bytes
+AVM_PCMRATE  = 3*20
 
 
 
