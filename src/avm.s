@@ -143,6 +143,8 @@ avm_init:
 	ld	(iy+AVM.rest_val), AVM_REST_DEFAULT
 	; default to both outputs, no modulation
 	ld	(iy+AVM.pan), OPN_PAN_L|OPN_PAN_R
+	xor	a
+	ld	(iy+AVM.portamento), a
 
 	ret
 
@@ -233,10 +235,11 @@ avm_exec_opn:
 	jp	avm_op_vol      ; 12
 	jp	avm_op_pan      ; 13
 	jp	avm_op_pms      ; 14
-	jp	avm_op_opn_reg  ; 15
-	jp	avm_op_stop     ; 16
-	jp	avm_op_note_off ; 17
-	jp	avm_op_ams      ; 18
+	jp	avm_op_ams      ; 15
+	jp	avm_op_opn_reg  ; 16
+	jp	avm_op_stop     ; 17
+	jp	avm_op_note_off ; 18
+	jp	avm_op_slide    ; 19
 
 ; ------------------------------------------------------------------------------
 
@@ -246,7 +249,7 @@ avm_op_finished:
 	ld	(iy+AVM.pc+1), h
 	ld	(iy+AVM.pc), l
 avm_op_reenter:
-	jp	avm_exec_opn
+	jr	avm_exec_opn
 
 ; ------------------------------------------------------------------------------
 
@@ -456,23 +459,30 @@ avm_op_pms:      ; 14
 	and	a, 0F8h  ; remove pms bits
 	jr	avm_op_pan_commit_a
 
-avm_op_ams:      ; 14
+avm_op_ams:      ; 15
 	ld	a, (iy+AVM.pan)
 	and	a, 0CFh  ; remove ams bits
 	jr	avm_op_pan_commit_a
 
-avm_op_opn_reg:  ; 15
+avm_op_opn_reg:  ; 16
+	; TODO
 	jp	avm_op_finished
 
-avm_op_stop:     ; 16
+avm_op_stop:     ; 18
 	ld	(iy+AVM.status), AVM_STATUS_INACTIVE
 	ret
 
-avm_op_note_off: ; 17
+avm_op_note_off: ; 18
 	ld	a, OPN_REG_KEYON
 	ld	(OPN_ADDR0), a  ; addr
 	ld	a, (iy+AVM.channel_id)
 	ld	(OPN_DATA0), a  ; data
+	jp	avm_op_finished
+
+avm_op_slide:    ; 19
+	ld	a, (hl)
+	inc	hl
+	ld	(iy+AVM.portamento), a
 	jp	avm_op_finished
 
 ; ------------------------------------------------------------------------------
@@ -598,9 +608,45 @@ tlmod macro opno
 ;
 ; ------------------------------------------------------------------------------
 
+portamento_read_tgt_freq_de macro
+	ld	a, (iy+AVM.tgt_freq+1)
+	ld	d, a
+	ld	a, (iy+AVM.tgt_freq)
+	ld	e, a
+	endm
+
+portamento_write_tgt_freq_de macro
+	ld	a, d
+	ld	(iy+AVM.tgt_freq+1), a
+	ld	a, e
+	ld	(iy+AVM.tgt_freq), a
+	endm
+
+portamento_read_now_freq_hl macro
+	ld	a, (iy+AVM.now_freq+1)
+	ld	h, a
+	ld	a, (iy+AVM.now_freq)
+	ld	l, a
+	endm
+
+portamento_write_now_freq_hl macro
+	ld	a, h
+	ld	(iy+AVM.now_freq+1), a
+	ld	a, l
+	ld	(iy+AVM.now_freq), a
+	endm
+
+portamento_write_now_freq_de macro
+	ld	a, d
+	ld	(iy+AVM.now_freq+1), a
+	ld	a, e
+	ld	(iy+AVM.now_freq), a
+	endm
+
 avm_portamento:
 	ld	a, (iy+AVM.portamento)
-	; jr	nz, .port_change ; TODO
+	or	a
+	jr	nz, .port_change ; TODO
 	; Portamento of 0 = instant
 	ld	a, (iy+AVM.tgt_freq)
 	ld	(iy+AVM.now_freq), a
@@ -611,66 +657,78 @@ avm_portamento:
 	ret
 
 .port_change:
-	; Now frequency in hl
-	ld	a, (iy+AVM.now_freq+1)
-	ld	h, a
-	ld	a, (iy+AVM.now_freq)
-	ld	l, a
-	; Sign extend portamento change value
-	ld	a, (iy+AVM.portamento)
-	jp	p, +
-	dec	h  ; subtract $100 from HL if A was negative
-+:
-	add	a, l
-	ld	l, a
-	adc	a, h
-	sub	l
-	ld	h, a
-	; Is hl below OPN_NOTE_C?
-	ld	de, OPN_NOTE_C
-	or	a
-	sbc	hl, de
-	add	hl, de
-	jr	nc, +
-	; if so, add OPN_NOTE_C, and subtract from block.
-	add	hl, de
-	ld	a, h
-	ld	(iy+AVM.now_freq+1), a
-	ld	a, l
-	ld	(iy+AVM.now_freq), a
+	portamento_read_now_freq_hl
+	; Compare target block to now
 	ld	a, (iy+AVM.now_block)
-	or	a
-	jr	z, +  ; skip if already zero.
-	sub	08h
-	ld	(iy+AVM.now_block), a
-	ret
-+:
-	; Else, is hl above (OPN_NOTE_C*2)?
+	ld	b, (iy+AVM.tgt_block)
+	cp	b
+	jr	c, .target_block_lower
+	jp	z, .target_block_same
+.target_block_higher:
+	; add portamento to now freq
+	ld	a, (iy+AVM.portamento)
+	add_a_to_hl
+	; Is hl above OPN_NOTE_C*2?
 	ld	de, OPN_NOTE_C*2
-	or	a
-	sbc	hl, de
-	add	hl, de
+	compare_hl_r16 de
 	jr	c, +
-	; if so, subtract OPN_NOTE_C, and add to block.
+	; if so, increment now_block...
+	ld	a, (iy+AVM.now_block)
+	add	a, 08h
+	and	3Fh
+	ld	(iy+AVM.now_block), a
+	; ...and subtract OPN_NOTE_C from freq.
 	ld	de, 10000h-OPN_NOTE_C
 	add	hl, de
-	ld	a, h
-	ld	(iy+AVM.now_freq+1), a
-	ld	a, l
-	ld	(iy+AVM.now_freq), a
-	ld	a, (iy+AVM.now_block)
-	cp	8*7
-	jr	z, +  ; skip if already at max.
-	add	a, 08h
-	ld	(iy+AVM.now_block), a
-	ret
 +:
-	; Just write hl back with no block change.
-	ld	a, h
-	ld	(iy+AVM.now_freq+1), a
-	ld	a, l
-	ld	(iy+AVM.now_freq), a
+	; Write back the freq change and exit.
+.now_freq_hl_commit:
+	portamento_write_now_freq_hl
 	ret
+.target_block_lower:
+	; sub portamento from now freq
+	ld	a, (iy+AVM.portamento)
+	sub_a_from_hl
+	; Is hl below OPN_NOTE_C?
+	ld	de, OPN_NOTE_C
+	compare_hl_r16 de
+	jr	nc, .now_freq_hl_commit
+	; if so, decrement now_block...
+	ld	a, (iy+AVM.now_block)
+	sub	08h
+	and	3Fh
+	ld	(iy+AVM.now_block), a
+	; ...and add OPN_NOTE_C from freq.
+	ld	de, OPN_NOTE_C
+	add	hl, de
+	jr	.now_freq_hl_commit
+
+.target_block_same:
+	portamento_read_tgt_freq_de
+	; Is the target frequency higher?
+	compare_hl_r16 de
+	ret	z  ; same block, same freq. get outta here
+	jr	c, .target_freq_lower
+.target_freq_higher:
+	ld	a, (iy+AVM.portamento)
+	add_a_to_hl
+	; Did we surpass the target?
+	compare_hl_r16 de
+	jr	c, .now_freq_hl_commit  ; nope
+	; Adopt target and get out.
+	portamento_write_now_freq_de
+	ret
+
+.target_freq_lower:
+	ld	a, (iy+AVM.portamento)
+	sub_a_from_hl
+	; Did we surpass the target?
+	compare_hl_r16 de
+	jr	nc, .now_freq_hl_commit  ; nope
+	; Adopt target and get out.
+	portamento_write_now_freq_de
+	ret
+
 
 ; ------------------------------------------------------------------------------
 ;

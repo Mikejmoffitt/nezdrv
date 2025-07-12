@@ -4,7 +4,7 @@
 ;
 
 TEST_LENGTH = 6
-TEST_TIMER = 0C0h
+TEST_TIMER = 080h
 
 ;
 ;
@@ -32,6 +32,10 @@ avm_data_test_bass:
 	db	AVM_VOL, 00h
 .loop:
 	db	AVM_CALL
+	dw	.ptest_sub
+	db	AVM_JUMP
+	dw	.loop
+	db	AVM_CALL
 	dw	.pt1_sub
 	db	AVM_JUMP
 	dw	.loop
@@ -57,10 +61,21 @@ avm_data_test_bass:
 	db	AVM_OCT_UP
 	dw	AVM_RET
 
+.ptest_sub:
+	db	AVM_LENGTH, 020h
+	db	AVM_NOTE_C
+	db	AVM_SLIDE, 10h
+	db	AVM_NOTE_E
+	db	AVM_NOTE_G
+	db	AVM_OCT_UP, AVM_NOTE_C, AVM_OCT_DOWN
+	db	AVM_SLIDE, 40h
+	dw	AVM_RET
+
 ;
 ;
 ;
 avm_data_test_lead_init_sub:
+	db	AVM_TIMER, TEST_TIMER
 	db	AVM_INST, 0
 	db	AVM_LENGTH, TEST_LENGTH
 	db	AVM_OCT, 5*8

@@ -6,6 +6,14 @@ add_a_to_hl	macro
 	ld	h, a
 	endm
 
+sub_a_from_hl	macro
+	neg	a
+	jr	z, +
+	dec	h
+	add_a_to_hl
++:
+	endm
+
 add_a_to_bc	macro
 	add	a, b
 	ld	b, a
@@ -36,6 +44,12 @@ add_a_to_ixy	macro
 	adc	a, ixh
 	sub	ixl
 	ld	ixh, a
+	endm
+
+compare_hl_r16 macro regname
+	or a
+	sbc hl, regname
+	add hl, regname
 	endm
 
 ; a = offset

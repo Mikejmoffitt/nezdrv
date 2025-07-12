@@ -96,14 +96,16 @@ AVM_VOL      = 3*12
 AVM_PAN      = 3*13
 ; Set PMS
 AVM_PMS      = 3*14
-; Set arbitrary FM register  +2 bytes
-AVM_OPN_REG  = 3*15
-; Stop the channel.
-AVM_STOP     = 3*16
-; Note off
-AVM_NOTE_OFF = 3*17
 ; Set AMS
-AVM_AMS      = 3*18
+AVM_AMS      = 3*15
+; Set arbitrary FM register  +2 bytes
+AVM_OPN_REG  = 3*16
+; Stop the channel.
+AVM_STOP     = 3*17
+; Note off
+AVM_NOTE_OFF = 3*18
+; Set portamento
+AVM_SLIDE    = 3*19
 
 
 
