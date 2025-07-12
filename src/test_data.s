@@ -4,7 +4,88 @@
 ;
 
 TEST_LENGTH = 6
-TEST_TIMER = 080h
+TEST_TIMER = 0C0h
+
+track_test:
+	dw	.track_list
+	dw	.instruments_list
+.track_list:
+	dw	avm_data_test_bass
+	dw	avm_data_test_lead
+	dw	0
+	dw	avm_data_test_bass_echo
+	dw	avm_data_test_lead_echo
+	dw	0
+	dw	0
+	dw	0
+	dw	0
+	dw	0
+.instruments_list:
+	dw	.inst0_lead
+	dw	.inst1_bass
+
+.inst0_lead:
+	opnp_con_fb  2,  7
+	opnp_mul_dt  2,  0  ; 0
+	opnp_mul_dt  0,  0  ; 2
+	opnp_mul_dt  0,  0  ; 1
+	opnp_mul_dt  1,  0  ; 3
+	opnp_tl     27      ; 0
+	opnp_tl     63      ; 2
+	opnp_tl      9      ; 1
+	opnp_tl      1      ; 3
+	opnp_ar_ks  31,  0  ; 0
+	opnp_ar_ks  31,  0  ; 2
+	opnp_ar_ks  31,  0  ; 1
+	opnp_ar_ks  31,  0  ; 3
+	opnp_dr_am   0,  0  ; 0
+	opnp_dr_am   0,  0  ; 2
+	opnp_dr_am   0,  0  ; 1
+	opnp_dr_am  15,  0  ; 3
+	opnp_sr      0      ; 0
+	opnp_sr      0      ; 2
+	opnp_sr      0      ; 1
+	opnp_sr     12      ; 3
+	opnp_rr_sl   0,  0  ; 0
+	opnp_rr_sl   0,  0  ; 2
+	opnp_rr_sl   0,  0  ; 1
+	opnp_rr_sl  24,  3  ; 3
+	opnp_ssg_eg  0      ; 0
+	opnp_ssg_eg  0      ; 2
+	opnp_ssg_eg  0      ; 1
+	opnp_ssg_eg  0      ; 3
+
+.inst1_bass:
+	opnp_con_fb  0,  1
+	opnp_mul_dt  7,  0  ; 0
+	opnp_mul_dt  0,  3  ; 2
+	opnp_mul_dt  0, -3  ; 1
+	opnp_mul_dt  0,  0  ; 3
+	opnp_tl     31      ; 0
+	opnp_tl     17      ; 2
+	opnp_tl     43      ; 1
+	opnp_tl      7      ; 3
+	opnp_ar_ks  31,  2  ; 0
+	opnp_ar_ks  31,  2  ; 2
+	opnp_ar_ks  31,  2  ; 1
+	opnp_ar_ks  31,  2  ; 3
+	opnp_dr_am  18,  0  ; 0
+	opnp_dr_am  10,  0  ; 2
+	opnp_dr_am  14,  0  ; 1
+	opnp_dr_am  10,  0  ; 3
+	opnp_sr      0      ; 0
+	opnp_sr      0      ; 2
+	opnp_sr      0      ; 1
+	opnp_sr      0      ; 3
+	opnp_rr_sl   8,  2  ; 0
+	opnp_rr_sl   5,  2  ; 2
+	opnp_rr_sl   5,  2  ; 1
+	opnp_rr_sl   5,  2  ; 3
+	opnp_ssg_eg  0      ; 0
+	opnp_ssg_eg  0      ; 2
+	opnp_ssg_eg  0      ; 1
+	opnp_ssg_eg  0      ; 3
+
 
 ;
 ;
@@ -31,10 +112,10 @@ avm_data_test_bass:
 	db	AVM_PAN, OPN_PAN_L
 	db	AVM_VOL, 00h
 .loop:
-	db	AVM_CALL
-	dw	.ptest_sub
-	db	AVM_JUMP
-	dw	.loop
+;	db	AVM_CALL
+;	dw	.ptest_sub
+;	db	AVM_JUMP
+;	dw	.loop
 	db	AVM_CALL
 	dw	.pt1_sub
 	db	AVM_JUMP
@@ -64,11 +145,9 @@ avm_data_test_bass:
 .ptest_sub:
 	db	AVM_LENGTH, 020h
 	db	AVM_NOTE_C
-	db	AVM_SLIDE, 10h
 	db	AVM_NOTE_E
 	db	AVM_NOTE_G
 	db	AVM_OCT_UP, AVM_NOTE_C, AVM_OCT_DOWN
-	db	AVM_SLIDE, 40h
 	dw	AVM_RET
 
 ;

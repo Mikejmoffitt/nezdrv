@@ -1,8 +1,10 @@
 ;
 ; Track header.
 ;
-TRACKHEADER struct
-instruments_list_ptr:  ds 2
+
+TRACKINFO struct
 track_list_ptr:        ds 2
-sample_list_ptr:       ds 2
-TRACKHEADER endstruct
+instrument_list_ptr:   ds 2
+TRACKINFO endstruct
+
+NEZDRV_TRACK_LOAD_ADDR = 0A00h

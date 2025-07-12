@@ -18,6 +18,10 @@ v_rst0:
 	include	"src/opn.s"
 	include	"src/avm.s"
 	include	"src/vars.s"
+
+	; This is where data should be overlaid by the host.
+	ORG	NEZDRV_TRACK_LOAD_ADDR
+TrackBuffer:
 	include	"src/test_data.s"
 
 

@@ -2,83 +2,14 @@
 ; Channel interpreter.
 ;
 
-;
-; Default data
-;
-avm_data_nulltrk:
-	db	AVM_STOP
 
-avmg_data_default_instrument_list:
-	dw	avmg_inst_lead
-	dw	avmg_inst_bass
-
-avmg_inst_lead:
-	opnp_con_fb  2,  7
-	opnp_mul_dt  2,  0  ; 0
-	opnp_mul_dt  0,  0  ; 2
-	opnp_mul_dt  0,  0  ; 1
-	opnp_mul_dt  1,  0  ; 3
-	opnp_tl     27      ; 0
-	opnp_tl     63      ; 2
-	opnp_tl      9      ; 1
-	opnp_tl      1      ; 3
-	opnp_ar_ks  31,  0  ; 0
-	opnp_ar_ks  31,  0  ; 2
-	opnp_ar_ks  31,  0  ; 1
-	opnp_ar_ks  31,  0  ; 3
-	opnp_dr_am   0,  0  ; 0
-	opnp_dr_am   0,  0  ; 2
-	opnp_dr_am   0,  0  ; 1
-	opnp_dr_am  15,  0  ; 3
-	opnp_sr      0      ; 0
-	opnp_sr      0      ; 2
-	opnp_sr      0      ; 1
-	opnp_sr     12      ; 3
-	opnp_rr_sl   0,  0  ; 0
-	opnp_rr_sl   0,  0  ; 2
-	opnp_rr_sl   0,  0  ; 1
-	opnp_rr_sl  24,  3  ; 3
-	opnp_ssg_eg  0      ; 0
-	opnp_ssg_eg  0      ; 2
-	opnp_ssg_eg  0      ; 1
-	opnp_ssg_eg  0      ; 3
-
-avmg_inst_bass:
-	opnp_con_fb  0,  1
-	opnp_mul_dt  7,  0  ; 0
-	opnp_mul_dt  0,  3  ; 2
-	opnp_mul_dt  0, -3  ; 1
-	opnp_mul_dt  0,  0  ; 3
-	opnp_tl     31      ; 0
-	opnp_tl     17      ; 2
-	opnp_tl     43      ; 1
-	opnp_tl      7      ; 3
-	opnp_ar_ks  31,  2  ; 0
-	opnp_ar_ks  31,  2  ; 2
-	opnp_ar_ks  31,  2  ; 1
-	opnp_ar_ks  31,  2  ; 3
-	opnp_dr_am  18,  0  ; 0
-	opnp_dr_am  10,  0  ; 2
-	opnp_dr_am  14,  0  ; 1
-	opnp_dr_am  10,  0  ; 3
-	opnp_sr      0      ; 0
-	opnp_sr      0      ; 2
-	opnp_sr      0      ; 1
-	opnp_sr      0      ; 3
-	opnp_rr_sl   8,  2  ; 0
-	opnp_rr_sl   5,  2  ; 2
-	opnp_rr_sl   5,  2  ; 1
-	opnp_rr_sl   5,  2  ; 3
-	opnp_ssg_eg  0      ; 0
-	opnp_ssg_eg  0      ; 2
-	opnp_ssg_eg  0      ; 1
-	opnp_ssg_eg  0      ; 3
+; ------------------------------------------------------------------------------
 ;
-; Initializes all channels.
+; Initialization
 ;
+; ------------------------------------------------------------------------------
 avm_init:
 	ld	hl, .channel_id_tbl
-	; Initialize channels
 	ld	b, TOTAL_CHANNEL_COUNT
 	ld	iy, AvmStart
 -:
@@ -93,20 +24,14 @@ avm_init:
 	ld	de, AVM.len
 	add	iy, de
 	djnz	-
-
-	; Set global state
-	ld	iy, AvmGlobal
-	ld	hl, avmg_data_default_instrument_list
-	ld	(iy+AVMG.instrument_list_ptr+1), h
-	ld	(iy+AVMG.instrument_list_ptr), l
 	ret
 
 .channel_id_tbl:
+	db	0, 1, 2  ; FM0-FM2 bgm
+	db	4, 5, 6  ; FM3-FM6 bgm
+	db	00h, 20h, 40h, 60h  ; PSG 0-3 bgm
 	db	0, 1, 2 ; FM0-FM2 sound effects
-	db	0, 1, 2  ; FM0-FM2
-	db	4, 5, 6  ; FM3-FM6
-	db	00h, 20h  ; PSG 0-1 sound effects
-	db	00h, 20h, 40h, 60h  ; PSG 0-3
+	db	00h, 20h, 40h, 60h  ; PSG 0-3 sound effects
 
 ; iy = channel state struct
 ; a = channel id / offset
@@ -117,7 +42,6 @@ avm_init:
 	ld	h, a
 	ld	a, iyl
 	ld	l, a
-	push	hl
 	; DE := hl + 1
 	ld	e, l
 	ld	d, h
@@ -125,27 +49,80 @@ avm_init:
 	ld	(hl), 00h  ; First byte is initialized with clear value 00h
 	ld	bc, AVM.len
 	ldir
-	; Install null track
-	ld	hl, avm_data_nulltrk
-	ld	(iy+AVM.pc+1), h
-	ld	(iy+AVM.pc), l
-	; Set stack pointer
-	pop	hl
-	ld	de, AVM.stack
-	add	hl, de
-	; hl now points to the stack start.
-	ld	(iy+AVM.stack_ptr+1), h
-	ld	(iy+AVM.stack_ptr), l
 	; mark channel offset
 	pop	af
 	ld	(iy+AVM.channel_id), a
+	call	avm_reset_sub
+	ret
+
+; iy = avm head
+; clobbers hl
+avm_reset_sub:
+	; Zero some defaults to inactive
+	xor	a
+	ld	(iy+AVM.status), a      ; inactive
+	ld	(iy+AVM.portamento), a  ; no portamento
+	ld	(iy+AVM.vib_mag), a     ; no vibrato
+	ld	(iy+AVM.vib_cnt), a     ; v counter reset
+	; Set stack pointer
+	ld	a, iyh
+	ld	h, a
+	ld	a, iyl
+	ld	l, a
+	ld	de, AVM.stack
+	add	hl, de
+	ld	(iy+AVM.stack_ptr+1), h
+	ld	(iy+AVM.stack_ptr), l
 	; channel default
 	ld	(iy+AVM.rest_val), AVM_REST_DEFAULT
 	; default to both outputs, no modulation
 	ld	(iy+AVM.pan), OPN_PAN_L|OPN_PAN_R
-	xor	a
-	ld	(iy+AVM.portamento), a
+	ret
 
+avm_bgm_reset:
+	ld	b, TOTAL_BGM_CHANNEL_COUNT
+	ld	iy, AvmBgmStart
+-:
+	call	avm_reset_sub
+	ld	de, AVM.len
+	add	iy, de
+	djnz	-
+	ret
+
+avm_load_track:
+	call	avm_bgm_reset
+	; Set up tracks
+	ld	b, OPN_BGM_CHANNEL_COUNT
+	ld	hl, TrackBuffer+TRACKINFO.track_list_ptr
+	ld	e, (hl)
+	inc	hl
+	ld	d, (hl)
+	ld	hl, 0
+	add	hl, de
+	ld	iy, AvmBgmStart
+-:
+	; de takes pointer to track
+	ld	a, (hl)
+	ld	e, a
+	inc	hl
+	ld	a, (hl)
+	ld	d, a
+	inc	hl
+	; see if pointer is null, and if so, skip it
+	ld	a, e
+	or	d
+	jr	z, .skip_track
+	; copy pointer and set track to active
+	ld	a, e
+	ld	(iy+AVM.pc), a
+	ld	a, d
+	ld	(iy+AVM.pc+1), a
+	ld	a, AVM_STATUS_ACTIVE
+	ld	(iy+AVM.status), a
+.skip_track:
+	ld	de, AVM.len
+	add	iy, de
+	djnz	-
 	ret
 
 ; Assigns a track to an AVM channel
@@ -158,26 +135,26 @@ avm_set_head:
 	ld	(iy+AVM.status), AVM_STATUS_ACTIVE
 	ret
 
+
+; ------------------------------------------------------------------------------
+;
+; Main Poll Function
+;
+; ------------------------------------------------------------------------------
+
 avm_poll:
-	call	avm_poll_opn
-	call	avm_poll_psg
+	ld	b, OPN_BGM_CHANNEL_COUNT
+	ld	iy, AvmOpnBgm
+	call	avm_poll_opn_sub
+	ld	b, OPN_SFX_CHANNEL_COUNT
+	ld	iy, AvmOpnSfx
+	call	avm_poll_opn_sub
 	ret
 
-;
-; Iterates through active PSG channels
-;
-avm_poll_psg:
-	; TODO
-	ret
-
-;
-; Iterates through all active OPN channels
-;
-avm_poll_opn:
-	; Initialize channels
-	ld	b, TOTAL_OPN_CHANNEL_COUNT
-	ld	iy, AvmOpnStart
--:
+; b = count
+; iy = avm head
+avm_poll_opn_sub:
+.loop:
 	push	bc
 	; Skip inactive channels
 	ld	a, (iy+AVM.status)
@@ -190,9 +167,14 @@ avm_poll_opn:
 	ld	de, AVM.len
 	add	iy, de
 	pop	bc
-	djnz	-
+	djnz	.loop
 	ret
 
+; ------------------------------------------------------------------------------
+;
+; Execution of AVM Instructions
+;
+; ------------------------------------------------------------------------------
 avm_exec_opn:
 .exec:
 	; If rest counter > 0, decrement and proceed
@@ -213,12 +195,6 @@ avm_exec_opn:
 	jp	m, avm_op_note
 	; Else, it's a control instruction.
 	jptbl_dispatch
-
-; ------------------------------------------------------------------------------
-;
-; Control instructions
-;
-; ------------------------------------------------------------------------------
 
 	jp	avm_op_jump     ;  0
 	jp	avm_op_call     ;  1
@@ -385,9 +361,9 @@ avm_op_inst:     ;
 	ld	e, (hl)
 	inc	hl
 	push	hl
-	ld	ix, AvmGlobal
-	ld	h, (ix+AVMG.instrument_list_ptr+1)
-	ld	l, (ix+AVMG.instrument_list_ptr)
+	ld	ix, TrackBuffer
+	ld	h, (ix+TRACKINFO.instrument_list_ptr+1)
+	ld	l, (ix+TRACKINFO.instrument_list_ptr)
 	add	hl, de  ; += instrument id offset
 	; de take the patch address, also stored in the ch state
 	ld	e, (hl)
@@ -662,8 +638,25 @@ avm_portamento:
 	ld	a, (iy+AVM.now_block)
 	ld	b, (iy+AVM.tgt_block)
 	cp	b
-	jr	c, .target_block_lower
+	jr	c, .target_block_higher
 	jp	z, .target_block_same
+.target_block_lower:
+	; sub portamento from now freq
+	ld	a, (iy+AVM.portamento)
+	sub_a_from_hl
+	; Is hl below OPN_NOTE_C?
+	ld	de, OPN_NOTE_C
+	compare_hl_r16 de
+	jr	nc, .now_freq_hl_commit
+	; if so, decrement now_block...
+	ld	a, (iy+AVM.now_block)
+	sub	08h
+	and	3Fh
+	ld	(iy+AVM.now_block), a
+	; ...and add OPN_NOTE_C from freq.
+	ld	de, OPN_NOTE_C
+	add	hl, de
+	jr	.now_freq_hl_commit
 .target_block_higher:
 	; add portamento to now freq
 	ld	a, (iy+AVM.portamento)
@@ -685,46 +678,28 @@ avm_portamento:
 .now_freq_hl_commit:
 	portamento_write_now_freq_hl
 	ret
-.target_block_lower:
-	; sub portamento from now freq
-	ld	a, (iy+AVM.portamento)
-	sub_a_from_hl
-	; Is hl below OPN_NOTE_C?
-	ld	de, OPN_NOTE_C
-	compare_hl_r16 de
-	jr	nc, .now_freq_hl_commit
-	; if so, decrement now_block...
-	ld	a, (iy+AVM.now_block)
-	sub	08h
-	and	3Fh
-	ld	(iy+AVM.now_block), a
-	; ...and add OPN_NOTE_C from freq.
-	ld	de, OPN_NOTE_C
-	add	hl, de
-	jr	.now_freq_hl_commit
 
 .target_block_same:
 	portamento_read_tgt_freq_de
 	; Is the target frequency higher?
 	compare_hl_r16 de
 	ret	z  ; same block, same freq. get outta here
-	jr	c, .target_freq_lower
-.target_freq_higher:
-	ld	a, (iy+AVM.portamento)
-	add_a_to_hl
-	; Did we surpass the target?
-	compare_hl_r16 de
-	jr	c, .now_freq_hl_commit  ; nope
-	; Adopt target and get out.
-	portamento_write_now_freq_de
-	ret
-
+	jr	c, .target_freq_higher
 .target_freq_lower:
 	ld	a, (iy+AVM.portamento)
 	sub_a_from_hl
 	; Did we surpass the target?
 	compare_hl_r16 de
 	jr	nc, .now_freq_hl_commit  ; nope
+	; Adopt target and get out.
+	portamento_write_now_freq_de
+	ret
+.target_freq_higher:
+	ld	a, (iy+AVM.portamento)
+	add_a_to_hl
+	; Did we surpass the target?
+	compare_hl_r16 de
+	jr	c, .now_freq_hl_commit  ; nope
 	; Adopt target and get out.
 	portamento_write_now_freq_de
 	ret

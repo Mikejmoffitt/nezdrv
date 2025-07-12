@@ -1,25 +1,25 @@
 ;
 ; Work RAM begin
 ;
+
+STACK_DEPTH = 10h
+
 TmpStart:
 
 
-AvmGlobal:      ds AVMG.len
+TrackInfo:      ds TRACKINFO.len
 	align	10h
+
 AvmStart:
-AvmOpnStart:
-AvmOpnFx:       ds AVM.len * OPN_FX_CHANNEL_COUNT
-AvmOpn:         ds AVM.len * OPN_CHANNEL_COUNT
-AvmOpnEnd:
-AvmPsgStart:
-PsgChFx:        ds AVM.len * PSG_FX_CHANNEL_COUNT
-PsgCh:          ds AVM.len * PSG_CHANNEL_COUNT
-AvmPsgEnd:
-AvmEnd:
+AvmBgmStart:
+AvmOpnBgm:             ds AVM.len * OPN_BGM_CHANNEL_COUNT
+AvmPsgBgm:             ds AVM.len * PSG_BGM_CHANNEL_COUNT
+AvmSfxStart:
+AvmOpnSfx:             ds AVM.len * OPN_SFX_CHANNEL_COUNT
+AvmPsgSfx:             ds AVM.len * PSG_SFX_CHANNEL_COUNT
 
 TmpEnd:
 
-
 StackStart:
-	ds 64*2
+	ds STACK_DEPTH*2
 StackEnd:
