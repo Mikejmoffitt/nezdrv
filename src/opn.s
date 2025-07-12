@@ -22,8 +22,8 @@ opn_init:
 	ret
 
 .init_data:
-	db	OPN_REG_TA_HI, 80h
-	db	OPN_REG_TA_LO, 00h
+	db	OPN_REG_TA_HI, 10h
+	db	OPN_REG_TA_LO, 10h
 	db	OPN_REG_TB,    20h
 	db	OPN_REG_TCTRL, OPN_TCTRL_DEFAULT
 	db	OPN_REG_KEYON, 00h  ; all notes key off
@@ -54,7 +54,7 @@ opn_set_datwalk_4op	macro	regno
 ; hl = patch data
 ; a = channel num (0 - 6; '3' and '7' do not exist)
 opn_set_patch:
-	opn_set_base_ix  ; Set up ix with OPN_BASE or OPN_BASE2 by channel number.
+	opn_set_base_de  ; Set up ix with OPN_BASE or OPN_BASE2 by channel number.
 	ld	c, a  ; Get channel offset into C.
 	opn_set_datwalk OPN_REG_FB_CON
 	opn_set_datwalk_4op OPN_REG_DT_MUL
@@ -71,9 +71,11 @@ opn_set_patch:
 ; (hl) = data
 .write_sub:
 	add	a, c  ; channel bits
-	ld	(ix+0), a  ; 19
-	ld	a, (hl)    ; 7
-	ld	(ix+1), a  ; 19
+	ld	(de), a
+	inc	de
+	ld	a, (hl)
+	ld	(de), a
+	dec	de
 	inc	hl
 	opn_set_delay
 	ret
@@ -85,9 +87,13 @@ opn_set_patch:
 	add	a, c  ; channel bits
 	ld	b, 4  ; four operators
 .write_4op_loop:
-	ld	(ix+0), a  ; 19 addr
-	ld	d, (hl)    ; 7
-	ld	(ix+1), d  ; 19 data
+	ld	i, a  ; we aren't using IM2 so i is scratch
+	ld	(de), a  ; 19 addr
+	inc	de
+	ld	a, (hl)    ; 7
+	ld	(de), a  ; 19 data
+	dec	de
+	ld	a, i
 	inc	hl
 	add	a, 4  ; go to next op
 	opn_set_delay

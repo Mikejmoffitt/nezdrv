@@ -156,20 +156,34 @@ avm_set_head:
 	ld	(iy+AVM.status), AVM_STATUS_ACTIVE
 	ret
 
-;
-; Iterates through all active channels
-;
 avm_poll:
+	call	avm_poll_opn
+	call	avm_poll_psg
+	ret
+
+;
+; Iterates through active PSG channels
+;
+avm_poll_psg:
+	; TODO
+	ret
+
+;
+; Iterates through all active OPN channels
+;
+avm_poll_opn:
 	; Initialize channels
-	ld	b, TOTAL_CHANNEL_COUNT
-	ld	iy, AvmStart
+	ld	b, TOTAL_OPN_CHANNEL_COUNT
+	ld	iy, AvmOpnStart
 -:
 	push	bc
 	; Skip inactive channels
 	ld	a, (iy+AVM.status)
 	cp	AVM_STATUS_INACTIVE
 	jr	z, .next_chan
-	call	.exec
+	call	avm_exec_opn
+	call	avm_portamento
+	call	avm_update_output
 .next_chan:
 	ld	de, AVM.len
 	add	iy, de
@@ -177,8 +191,8 @@ avm_poll:
 	djnz	-
 	ret
 
+avm_exec_opn:
 .exec:
-	; TODO: macros / envelopes here
 	; If rest counter > 0, decrement and proceed
 	ld	a, (iy+AVM.rest_cnt)
 	and	a
@@ -194,7 +208,7 @@ avm_poll:
 	inc	hl
 	; If A is >= 80h, it's a note, and is handled differently.
 	and	a
-	jp	m, .handle_note
+	jp	m, avm_op_note
 	; Else, it's a control instruction.
 	jptbl_dispatch
 
@@ -204,38 +218,49 @@ avm_poll:
 ;
 ; ------------------------------------------------------------------------------
 
-	jp	.avm_op_jump     ;  0
-	jp	.avm_op_call     ;  1
-	jp	.avm_op_ret      ;  2
-	jp	.avm_op_loopset  ;  3
-	jp	.avm_op_loopend  ;  4
-	jp	.avm_op_timer    ;  5
-	jp	.avm_op_length   ;  6
-	jp	.avm_op_rest     ;  7
-	jp	.avm_op_oct      ;  8
-	jp	.avm_op_oct_up   ;  9
-	jp	.avm_op_oct_down ; 10
-	jp	.avm_op_inst     ; 11
-	jp	.avm_op_vol      ; 12
-	jp	.avm_op_pan      ; 13
-	jp	.avm_op_pms      ; 14
-	jp	.avm_op_opn_reg  ; 15
-	jp	.avm_op_stop     ; 16
-	jp	.avm_op_note_off ; 17
-	jp	.avm_op_ams      ; 18
+	jp	avm_op_jump     ;  0
+	jp	avm_op_call     ;  1
+	jp	avm_op_ret      ;  2
+	jp	avm_op_loopset  ;  3
+	jp	avm_op_loopend  ;  4
+	jp	avm_op_timer    ;  5
+	jp	avm_op_length   ;  6
+	jp	avm_op_rest     ;  7
+	jp	avm_op_oct      ;  8
+	jp	avm_op_oct_up   ;  9
+	jp	avm_op_oct_down ; 10
+	jp	avm_op_inst     ; 11
+	jp	avm_op_vol      ; 12
+	jp	avm_op_pan      ; 13
+	jp	avm_op_pms      ; 14
+	jp	avm_op_opn_reg  ; 15
+	jp	avm_op_stop     ; 16
+	jp	avm_op_note_off ; 17
+	jp	avm_op_ams      ; 18
 
 ; ------------------------------------------------------------------------------
 
-.avm_op_jump:     ;  0
+
+; This routine is modified based on whether it is OPN or PSG execution.
+avm_op_finished:
+	ld	(iy+AVM.pc+1), h
+	ld	(iy+AVM.pc), l
+avm_op_reenter:
+	jp	avm_exec_opn
+
+; ------------------------------------------------------------------------------
+
+
+avm_op_jump:     ;  0
 	; two bytes - pointer to jump to
 	ld	a, (hl)
 	ld	(iy+AVM.pc), a
 	inc	hl
 	ld	a, (hl)
 	ld	(iy+AVM.pc+1), a
-	jr	.exec
+	jr	avm_op_reenter
 
-.avm_op_call:     ;  1
+avm_op_call:     ;  1
 ; Read address argument and set pc to it
 ; Push address after this instruction to stack
 ; advance stack
@@ -259,9 +284,9 @@ avm_poll:
 	; store moved stack pointer
 	ld	(iy+AVM.stack_ptr+1), d
 	ld	(iy+AVM.stack_ptr), e
-	jr	.exec
+	jr	avm_op_reenter
 
-.avm_op_ret:      ;  2
+avm_op_ret:      ;  2
 	; decrement stack pointer, and place contents in pc.
 	ld	h, (iy+AVM.stack_ptr+1)
 	ld	l, (iy+AVM.stack_ptr)
@@ -274,9 +299,9 @@ avm_poll:
 	inc	hl
 	ld	a, (hl)
 	ld	(iy+AVM.pc), a
-	jp	.exec
+	jr	avm_op_reenter
 
-.avm_op_loopset:  ;  3
+avm_op_loopset:  ;  3
 	; Get loop count
 	ld	a, (hl)
 	ld	(iy+AVM.loop_cnt), a
@@ -284,9 +309,9 @@ avm_poll:
 	; Store address in the loop pointer field
 	ld	(iy+AVM.loop_ptr+1), h
 	ld	(iy+AVM.loop_ptr), l
-	jp	.instruction_finished
+	jp	avm_op_finished
 
-.avm_op_loopend:  ;  4
+avm_op_loopend:  ;  4
 	ld	a, (iy+AVM.loop_cnt)
 	sub	a, 1
 	ld	(iy+AVM.loop_cnt), a
@@ -296,28 +321,28 @@ avm_poll:
 	ld	(iy+AVM.pc+1), a
 	ld	a, (iy+AVM.loop_ptr)
 	ld	(iy+AVM.pc), a
-	jp	.exec
+	jr	avm_op_reenter
 +:
-	jp	.instruction_finished
+	jp	avm_op_finished
 
-.avm_op_timer:    ;  5
+avm_op_timer:    ;  5
 	ld	ix, OPN_BASE
 	ld	(ix+0), OPN_REG_TB
 	ld	a, (hl)
 	inc	hl
 	ld	(ix+1), a
-	jp	.instruction_finished
+	jp	avm_op_finished
 
 
 ; Sets the default rest value associated with notes.
-.avm_op_length:   ;  6
+avm_op_length:   ;  6
 	ld	a, (hl)
 	ld	(iy+AVM.rest_val), a
 	inc	hl
-	jp	.instruction_finished
+	jp	avm_op_finished
 
 ; Consumes the following byte as a rest count value.
-.avm_op_rest:     ;  7
+avm_op_rest:     ;  7
 	ld	a, (hl)
 	inc	hl
 	cp	00h
@@ -326,32 +351,32 @@ avm_poll:
 	ld	a, (iy+AVM.rest_val)
 +:
 	ld	(iy+AVM.rest_cnt), a
-	jp	.instruction_finished
+	jp	avm_op_finished
 
 ; Sets the octave register value.
-.avm_op_oct:      ;  8
+avm_op_oct:      ;  8
 	ld	a, (hl)
 	inc	hl
 	; fall-through
-.avm_op_oct_commit_a:
+avm_op_oct_commit_a:
 	ld	(iy+AVM.octave), a
-	jp	.instruction_finished
+	jp	avm_op_finished
 
-.avm_op_oct_up:   ;  9
+avm_op_oct_up:   ;  9
 	ld	a, (iy+AVM.octave)
 	cp	7*8  ; octave already == 7?
-	jp	nc, .instruction_finished
+	jp	nc, avm_op_finished
 	add	a, 8
-	jr	.avm_op_oct_commit_a
+	jr	avm_op_oct_commit_a
 
-.avm_op_oct_down: ; 10
+avm_op_oct_down: ; 10
 	ld	a, (iy+AVM.octave)
 	and	a  ; octave already at 0?
-	jp	z, .instruction_finished
+	jp	z, avm_op_finished
 	sub	a, 8
-	jr	.avm_op_oct_commit_a
+	jr	avm_op_oct_commit_a
 
-.avm_op_inst:     ;
+avm_op_inst:     ;
 	; de takes instrument ID / offset into list
 	ld	d, 00h
 	ld	e, (hl)
@@ -400,58 +425,55 @@ avm_poll:
 	ld	a, (iy+AVM.channel_id)
 	call	opn_set_patch
 	pop	hl
-	jp	.instruction_finished
+	jp	avm_op_finished
 
-.avm_op_vol:      ; 12
+avm_op_vol:      ; 12
 	ld	a, (hl)
 	ld	(iy+AVM.volume), a
 	inc	hl
-	jr	.instruction_finished
+	jp	avm_op_finished
 
-.avm_op_pan:      ; 13
+avm_op_pan:      ; 13
 	ld	a, (iy+AVM.pan)
 	and	a, 3Fh  ; remove pan bits
 	; fall-through to commit
-.avm_op_pan_commit_a:
+avm_op_pan_commit_a:
 	or	a, (hl)
 	inc	hl
 	ld	b, a
 	ld	(iy+AVM.pan), a
 	ld	a, (iy+AVM.channel_id)
-	opn_set_base_ix
+	opn_set_base_de
 	add	a, OPN_REG_MOD
-	ld	(ix+0), a
-	ld	(ix+1), b  ; final pan data from before
-	jr	.instruction_finished
+	ld	(de), a
+	inc	de
+	ld	a, b
+	ld	(de), a  ; final pan data from before
+	jp	avm_op_finished
 
-.avm_op_pms:      ; 14
+avm_op_pms:      ; 14
 	ld	a, (iy+AVM.pan)
 	and	a, 0F8h  ; remove pms bits
-	jr	.avm_op_pan_commit_a
+	jr	avm_op_pan_commit_a
 
-.avm_op_ams:      ; 14
+avm_op_ams:      ; 14
 	ld	a, (iy+AVM.pan)
 	and	a, 0CFh  ; remove ams bits
-	jr	.avm_op_pan_commit_a
+	jr	avm_op_pan_commit_a
 
-.avm_op_opn_reg:  ; 15
-	jr	.instruction_finished
+avm_op_opn_reg:  ; 15
+	jp	avm_op_finished
 
-.avm_op_stop:     ; 16
+avm_op_stop:     ; 16
 	ld	(iy+AVM.status), AVM_STATUS_INACTIVE
 	ret
 
-.instruction_finished:
-	ld	(iy+AVM.pc+1), h
-	ld	(iy+AVM.pc), l
-	jp	.exec
-
-.avm_op_note_off: ; 17
+avm_op_note_off: ; 17
+	ld	a, OPN_REG_KEYON
+	ld	(OPN_ADDR0), a  ; addr
 	ld	a, (iy+AVM.channel_id)
-	opn_set_base_ix
-	ld	(ix+0), OPN_REG_KEYON
-	ld	(ix+1), a
-	jp	.instruction_finished
+	ld	(OPN_DATA0), a  ; data
+	jp	avm_op_finished
 
 ; ------------------------------------------------------------------------------
 ;
@@ -459,48 +481,29 @@ avm_poll:
 ;
 ; ------------------------------------------------------------------------------
 
-.handle_note:
-	push	hl  ; store note pointer
+avm_op_note:
+	ld	b, a  ; back up the note data in b
 
-	ld	b, a  ; back up note in b
+	;
+	; Prepare OPN offset
+	;
 	ld	a, (iy+AVM.channel_id)
-	opn_set_base_ix
-	ld	c, a  ; Keep channel offset around in C.
+	opn_set_base_de
+	ld	c, a
 
-	; First key off - KEYON reg lives in the first half always.
-	ld	hl, OPN_ADDR0
-	ld	(hl), OPN_REG_KEYON
-	inc	hl
-	ld	a, (iy+AVM.channel_id)
-	ld	(hl), a
-;	call	opn_keyon_delay_sub
+	;
+	; Mark pending key press (if applicable)
+	;
+	ld	a, b
+	and	a, AVM_NOTE_NO_KEY_ON_FLAG
+	jr	nz, +
+	ld	a, 01h
+	ld	(iy+AVM.key_pending), a
++:
 
-	; High frequency + octave.
-	ld	hl, .freq_tbl
-
-	; Regsel with ch offs
-	ld	a, c
-	add	a, OPN_REG_FN_HI
-	ld	(ix+0), a
-	; Regdata high
-	ld	a, b    ; restore note
-	and	a, 1Fh  ; index into freq table
-	ld	e, a
-	ld	d, 00h
-	add	hl, de
-	ld	a, (hl)
-	or	a, (iy+AVM.octave)
-	ld	(ix+1), a
-
-	; Low frequency
-	inc	hl
-	; Regsel with ch offs
-	ld	a, c
-	add	a, OPN_REG_FN_LO
-	ld	(ix+0), a
-	; Regdata low
-	ld	a, (hl)
-	ld	(ix+1), a
+	;
+	; Volume modulation
+	;
 
 tlmod macro opno
 	ld	a, (iy+AVM.tl+opno)
@@ -509,11 +512,14 @@ tlmod macro opno
 	jr	c, +
 	ld	a, 7Fh
 +:
-	ld	d, a
+	ld	i, a
 	ld	a, c
 	add	a, OPN_REG_TL+(4*opno)
-	ld	(ix+0), a
-	ld	(ix+1), d  ; updated TL value
+	ld	(de), a
+	inc	de
+	ld	a, i
+	ld	(de), a  ; updated TL value
+	dec	de
 	endm
 
 	; Modify tl. Must leave B alone for use afterwards.
@@ -539,34 +545,191 @@ tlmod macro opno
 .note_volmod_op4:
 	tlmod	3
 
-	; The key on.
-	ld	hl, OPN_ADDR0
-	ld	(hl), OPN_REG_KEYON
-	inc	hl
-	ld	a, (iy+AVM.channel_id)
-	or	a, 0F0h  ; all operators.
-	ld	(hl), a
+	;
+	; Set target octave and frequency.
+	;
 
-	; Finally - if the note had bit 5 set (20h), then rest with the specified value.
+	; Adopt current octave setting (really, it's the block reg value).
+	ld	a, (iy+AVM.octave)
+	ld	(iy+AVM.tgt_block), a
+	; Look up note
+	push	hl      ; we'll need this later for rest processing.
+	ld	hl, .freq_tbl
+	ld	a, b    ; restore note
+	and	a, 1Fh  ; index into freq table
+	ld	e, a    ; offset freq tbl index with de
+	ld	d, 00h
+	add	hl, de
+	ld	a, (hl)
+	ld	(iy+AVM.tgt_freq), a
+	inc	hl
+	ld	a, (hl)
+	ld	(iy+AVM.tgt_freq+1), a
+
+	;
+	; Optional rest duration byte
+	;
 	pop	hl
 	ld	a, b
 	and	a, AVM_NOTE_REST_FLAG
-	jp	nz, .avm_op_rest
+	jp	nz, avm_op_rest
 	; Else just adopt the default rest value.
 	ld	a, (iy+AVM.rest_val)
 	ld	(iy+AVM.rest_cnt), a
-	jp	.instruction_finished
+	jp	avm_op_finished
 
 .freq_tbl:
-	db	(OPN_NOTE_C  >> 8) & 07h, OPN_NOTE_C  & 0FFh
-	db	(OPN_NOTE_Cs >> 8) & 07h, OPN_NOTE_Cs & 0FFh
-	db	(OPN_NOTE_D  >> 8) & 07h, OPN_NOTE_D  & 0FFh
-	db	(OPN_NOTE_Ds >> 8) & 07h, OPN_NOTE_Ds & 0FFh
-	db	(OPN_NOTE_E  >> 8) & 07h, OPN_NOTE_E  & 0FFh
-	db	(OPN_NOTE_F  >> 8) & 07h, OPN_NOTE_F  & 0FFh
-	db	(OPN_NOTE_Fs >> 8) & 07h, OPN_NOTE_Fs & 0FFh
-	db	(OPN_NOTE_G  >> 8) & 07h, OPN_NOTE_G  & 0FFh
-	db	(OPN_NOTE_Gs >> 8) & 07h, OPN_NOTE_Gs & 0FFh
-	db	(OPN_NOTE_A  >> 8) & 07h, OPN_NOTE_A  & 0FFh
-	db	(OPN_NOTE_As >> 8) & 07h, OPN_NOTE_As & 0FFh
-	db	(OPN_NOTE_B  >> 8) & 07h, OPN_NOTE_B  & 0FFh
+	dw	OPN_NOTE_C
+	dw	OPN_NOTE_Cs
+	dw	OPN_NOTE_D
+	dw	OPN_NOTE_Ds
+	dw	OPN_NOTE_E
+	dw	OPN_NOTE_F
+	dw	OPN_NOTE_Fs
+	dw	OPN_NOTE_G
+	dw	OPN_NOTE_Gs
+	dw	OPN_NOTE_A
+	dw	OPN_NOTE_As
+	dw	OPN_NOTE_B
+
+; ------------------------------------------------------------------------------
+;
+; Portamento
+;
+; ------------------------------------------------------------------------------
+
+avm_portamento:
+	ld	a, (iy+AVM.portamento)
+	; jr	nz, .port_change ; TODO
+	; Portamento of 0 = instant
+	ld	a, (iy+AVM.tgt_freq)
+	ld	(iy+AVM.now_freq), a
+	ld	a, (iy+AVM.tgt_freq+1)
+	ld	(iy+AVM.now_freq+1), a
+	ld	a, (iy+AVM.tgt_block)
+	ld	(iy+AVM.now_block), a
+	ret
+
+.port_change:
+	; Now frequency in hl
+	ld	a, (iy+AVM.now_freq+1)
+	ld	h, a
+	ld	a, (iy+AVM.now_freq)
+	ld	l, a
+	; Sign extend portamento change value
+	ld	a, (iy+AVM.portamento)
+	jp	p, +
+	dec	h  ; subtract $100 from HL if A was negative
++:
+	add	a, l
+	ld	l, a
+	adc	a, h
+	sub	l
+	ld	h, a
+	; Is hl below OPN_NOTE_C?
+	ld	de, OPN_NOTE_C
+	or	a
+	sbc	hl, de
+	add	hl, de
+	jr	nc, +
+	; if so, add OPN_NOTE_C, and subtract from block.
+	add	hl, de
+	ld	a, h
+	ld	(iy+AVM.now_freq+1), a
+	ld	a, l
+	ld	(iy+AVM.now_freq), a
+	ld	a, (iy+AVM.now_block)
+	or	a
+	jr	z, +  ; skip if already zero.
+	sub	08h
+	ld	(iy+AVM.now_block), a
+	ret
++:
+	; Else, is hl above (OPN_NOTE_C*2)?
+	ld	de, OPN_NOTE_C*2
+	or	a
+	sbc	hl, de
+	add	hl, de
+	jr	c, +
+	; if so, subtract OPN_NOTE_C, and add to block.
+	ld	de, 10000h-OPN_NOTE_C
+	add	hl, de
+	ld	a, h
+	ld	(iy+AVM.now_freq+1), a
+	ld	a, l
+	ld	(iy+AVM.now_freq), a
+	ld	a, (iy+AVM.now_block)
+	cp	8*7
+	jr	z, +  ; skip if already at max.
+	add	a, 08h
+	ld	(iy+AVM.now_block), a
+	ret
++:
+	; Just write hl back with no block change.
+	ld	a, h
+	ld	(iy+AVM.now_freq+1), a
+	ld	a, l
+	ld	(iy+AVM.now_freq), a
+	ret
+
+; ------------------------------------------------------------------------------
+;
+; Key On/Off and Frequency Output
+;
+; ------------------------------------------------------------------------------
+
+; iy = channel struct
+; if a key is pending, handles key off/on cycle.
+avm_update_output:
+	ld	a, (iy+AVM.key_pending)
+	or	a
+	jr	z, avm_express_freq_sub
+	ret	z
+	; First key off.
+	ld	a, OPN_REG_KEYON
+	ld	(OPN_ADDR0), a  ; addr
+	ld	a, (iy+AVM.channel_id)
+	ld	(OPN_DATA0), a  ; data
+
+	push	af
+	call	avm_express_freq_sub
+
+	; Then key on.
+	; TODO: Can we avoid a second address set here?
+	ld	a, OPN_REG_KEYON
+	ld	(OPN_ADDR0), a  ; addr
+	pop	af  ; channel ID from before. avoid a second iy access
+	or	a, 0F0h  ; all operators select.
+	ld	(OPN_DATA0), a  ;
+	; Clear out pending key flag.
+	xor	a  ; a := 0
+	ld	(iy+AVM.key_pending), a
+	ret
+
+; Writes frequency to fn registers.
+avm_express_freq_sub:
+	ld	a, (iy+AVM.channel_id)
+	opn_set_base_de
+	ld	c, a
+
+	; Hi reg sel
+	ld	a, c
+	add	a, OPN_REG_FN_HI
+	ld	(de), a
+	inc	de
+
+	; Hi reg data
+	ld	a, (iy+AVM.now_freq+1)
+	or	a, (iy+AVM.now_block)
+	ld	(de), a
+	dec	de
+	opn_set_delay
+
+	; Low reg sel
+	ld	a, c
+	add	a, OPN_REG_FN_LO
+	ld	(de), a
+	inc	de
+	ld	a, (iy+AVM.now_freq)
+	ld	(de), a
+	ret

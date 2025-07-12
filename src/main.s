@@ -27,8 +27,8 @@ set_opn_track macro chid, avmptr
 
 	set_opn_track 0, avm_data_test_bass
 	set_opn_track 1, avm_data_test_bass_echo
-	set_opn_track 4, avm_data_test_lead
-	set_opn_track 5, avm_data_test_lead_echo
+	set_opn_track 3, avm_data_test_lead
+	set_opn_track 4, avm_data_test_lead_echo
 
 main:
 	; Wait for timer events.

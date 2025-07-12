@@ -7,8 +7,11 @@ OPN_CHANNEL_COUNT = 6
 PSG_CHANNEL_COUNT = 4
 OPN_FX_CHANNEL_COUNT = 3
 PSG_FX_CHANNEL_COUNT = 2
+TOTAL_OPN_CHANNEL_COUNT = OPN_CHANNEL_COUNT+OPN_FX_CHANNEL_COUNT
+TOTAL_PSG_CHANNEL_COUNT = PSG_CHANNEL_COUNT+PSG_FX_CHANNEL_COUNT
+TOTAL_CHANNEL_COUNT = TOTAL_OPN_CHANNEL_COUNT+TOTAL_PSG_CHANNEL_COUNT
+
 AVM_STACK_DEPTH = 5
-TOTAL_CHANNEL_COUNT = OPN_CHANNEL_COUNT+PSG_CHANNEL_COUNT+OPN_FX_CHANNEL_COUNT+PSG_FX_CHANNEL_COUNT
 
 AVM_STATUS_INACTIVE = 0
 AVM_STATUS_ACTIVE = 1
@@ -19,29 +22,37 @@ AVM_REST_DEFAULT = 12
 ; General generic channel VM state
 AVM struct
 ; Intrinsic channel properties
-status:     ds 1
-channel_id: ds 1
+status:      ds 1
+channel_id:  ds 1
 
 ; Control flow
-pc:         ds 2
-loop_ptr:   ds 2
-loop_cnt:   ds 1
-rest_val:   ds 1
-rest_cnt:   ds 1
-stack_ptr:  ds 2
-stack:      ds AVM_STACK_DEPTH*2
+pc:          ds 2
+loop_ptr:    ds 2
+loop_cnt:    ds 1
+rest_val:    ds 1
+rest_cnt:    ds 1
+stack_ptr:   ds 2
+stack:       ds AVM_STACK_DEPTH*2
 
-; Note properties
-volume:     ds 1  ; really attenuation, summed with tl on key-on.
-octave:     ds 1  ; stored as multiples of 8 to match register.
+; Note settings
+volume:      ds 1  ; really attenuation, summed with tl on key-on.
+octave:      ds 1  ; stored as multiples of 8 to match block register.
+portamento:  ds 1  ; rate of change for target_freq. If 0, it is instant.
+
+; Current note play variables
+now_freq:    ds 2
+now_block:   ds 1
+tgt_freq:    ds 2
+tgt_block:   ds 1
+key_pending: ds 1  ; if true, awaiting a key on event.
 
 ; OPN-specific state
-patch_ptr:  ds 2
-tl_conoffs: ds 1  ; pre-multiplied jump table offset for tl setting (patch con * 3)
-tl:         ds 4  ; TL values from when instrument was set.
-pan:        ds 1  ; pan/ams/pms register.
+patch_ptr:   ds 2
+tl_conoffs:  ds 1  ; pre-multiplied jump table offset for tl setting (patch con * 3)
+tl:          ds 4  ; TL values from when instrument was set.
+pan:         ds 1  ; pan/ams/pms register.
 
-pad:        ds 1
+pad:         ds 10h-7h
 
 AVM endstruct
 
@@ -114,6 +125,8 @@ AVM_NOTE_Bs  = 98h
 ; If a note command has bit 5 set (20h) then the next byte contains the rest
 ; counter value to use instead of the one set for teh channel.
 AVM_NOTE_REST_FLAG = 20h
+; With bit 6 set, the new frequency is adopted, but the key state is unchanged.
+AVM_NOTE_NO_KEY_ON_FLAG = 40h
 
 AVM_NOTE_Db  = AVM_NOTE_Cs
 AVM_NOTE_Eb  = AVM_NOTE_Ds

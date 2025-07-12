@@ -59,6 +59,13 @@ opn_set_delay macro
 	pop	af
 	endm
 
+; in:  a = channel offset
+; out: a = OPN_BASE* lower bits (either 0 or 2, really)
+opn_set_base_lower_a macro
+	and	04h     ; filter out lower bits
+	rrca            ; and downshift
+	endm
+
 ; Sets either OPN_BASE or OPN_BASE2 in ix based on channel ID in a
 ; Leaves a set up as a channel offset.
 ; in:  a = channel offset
@@ -67,12 +74,24 @@ opn_set_delay macro
 opn_set_base_ix macro
 	push	af
 	ld	ix, OPN_BASE
-	and	04h     ; filter out lower bits
-	rrca            ; and downshift
+	opn_set_base_lower_a
 	ld	ixl, a  ; bump address based on high channel bit
 	pop	af
 	and	03h
 	endm
+
+; in:  a = channel offset
+; out: a = channel offset within OPN bank
+;      de = OPN_BASE*
+opn_set_base_de macro
+	push	af
+	ld	de, OPN_BASE
+	opn_set_base_lower_a
+	ld	e, a  ; bump address based on high channel bit
+	pop	af
+	and	03h
+	endm
+
 
 	; FM Patch data
 OPNPATCH struct
