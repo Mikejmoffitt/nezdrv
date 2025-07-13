@@ -1,4 +1,35 @@
-NEZ_ORG = 0A00h
+; ------------------------------------------------------------------------------
+;
+; Data format definitions and macros for writing music for NEZDRV.
+;
+; ------------------------------------------------------------------------------
+
+;
+; Track header definition.
+;
+
+nTrackNullPtr macro
+	dw	0
+	endm
+
+nTrackRelPtr macro lbl
+	dw	lbl-NEZ_TRACK_BASE-2
+	endm
+
+nTrackListEnd macro
+	dw	0
+	endm
+
+nTrackHeader macro endptr, pcmrate, temporate, tracklist, instrumentlist, pcmlist
+NEZ_TRACK_BASE := $
+	nTrackRelPtr endptr
+	dw	pcmrate
+	db	temporate
+	nTrackRelPtr tracklist
+	nTrackRelPtr instrumentlist
+	nTrackRelPtr pcmlist
+	endm
+
 
 ; Sound engine instruction bytes.
 

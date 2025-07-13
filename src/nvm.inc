@@ -15,7 +15,7 @@ TOTAL_BGM_CHANNEL_COUNT = OPN_BGM_CHANNEL_COUNT+PSG_BGM_CHANNEL_COUNT
 TOTAL_SFX_CHANNEL_COUNT = OPN_SFX_CHANNEL_COUNT+PSG_SFX_CHANNEL_COUNT
 TOTAL_CHANNEL_COUNT = TOTAL_BGM_CHANNEL_COUNT+TOTAL_SFX_CHANNEL_COUNT
 
-NVM_STACK_DEPTH = 5
+NVM_STACK_DEPTH = 8
 
 NVM_STATUS_INACTIVE = 0
 NVM_STATUS_ACTIVE = 1
@@ -25,7 +25,9 @@ NVM_REST_DEFAULT = 12
 
 NVM_BLOCK_PORTAMENTO_SKIP_FLAG = 80h
 
-; General generic channel VM state
+;
+; NEZDRV channel VM memory state.
+;
 NVM struct
 ; Intrinsic channel properties
 status:      ds 1
@@ -64,7 +66,17 @@ tl_conoffs:  ds 1  ; pre-multiplied jr table offset for tl setting (patch con * 
 tl:          ds 4  ; TL values from when instrument was set.
 pan:         ds 1  ; pan/ams/pms register.
 
-pad:         ds 6
-
 NVM endstruct
 
+
+;
+; Header at the start of a track in ROM. This data is copied in one form or
+; another into Z80 RAM.
+;
+TRACKINFO struct
+ta:                    ds 2  ; Timer A value (PCM rate)
+tb:                    ds 1  ; Timer B value (tempo control)
+track_list_offs:       ds 2  ; Offset from this header.
+instrument_list_offs:  ds 2  ; "
+pcm_list_offs:         ds 2  ; "
+TRACKINFO endstruct

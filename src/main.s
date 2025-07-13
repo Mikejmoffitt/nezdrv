@@ -14,7 +14,8 @@ start:
 	ld	bc, TmpEnd-TmpStart
 	ldir
 	call	nvm_init
-	call	nvm_load_track
+	ld	hl, bgm_test
+	call	nez_load_bgm_data
 
 main:
 	; Wait for timer events.
@@ -34,5 +35,4 @@ main:
 	ld	(OPN_DATA0), a
 
 	call	nvm_poll
-;	call	keydown_test_func
 	jr	main

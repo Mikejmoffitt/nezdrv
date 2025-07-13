@@ -4,8 +4,14 @@
 
 OPN_TCTRL_DEFAULT = 3Fh
 
+; shuts up the channels
+opn_reset:
+	ld	hl, opn_init.init_data_quiet
+	jr	z, opn_init.start
+
 opn_init:
 	ld	hl, .init_data
+.start:
 	ld	de, OPN_DATA0
 	ld	bc, (.init_data_end-.init_data)<<7 | (.init_data_end-.init_data)
 .loop:
@@ -26,6 +32,7 @@ opn_init:
 	db	OPN_REG_TA_LO, 10h
 	db	OPN_REG_TB,    20h
 	db	OPN_REG_TCTRL, OPN_TCTRL_DEFAULT
+.init_data_quiet:
 	db	OPN_REG_KEYON, 00h  ; all notes key off
 	db	OPN_REG_KEYON, 01h
 	db	OPN_REG_KEYON, 02h

@@ -1,8 +1,3 @@
-;
-; Channel interpreter.
-;
-
-
 ; ------------------------------------------------------------------------------
 ;
 ; Initialization
@@ -11,7 +6,7 @@
 nvm_init:
 	ld	hl, .channel_id_tbl
 	ld	b, TOTAL_CHANNEL_COUNT
-	ld	iy, NStart
+	ld	iy, NvmStart
 -:
 	ld	a, (hl)
 	push	hl
@@ -24,6 +19,11 @@ nvm_init:
 	ld	de, NVM.len
 	add	iy, de
 	djnz	-
+
+	; BgmBufferPtr starts at SfxBuffer so that BGM works even without SFX.
+	ld	hl, SfxBuffer
+	ld	(BgmBufferPtr), hl
+
 	ret
 
 .channel_id_tbl:
@@ -80,6 +80,11 @@ nvm_reset_sub:
 	ld	(iy+NVM.now_block), 80h
 	ret
 
+; ------------------------------------------------------------------------------
+;
+; Resets channels to an inactive state.
+;
+; ------------------------------------------------------------------------------
 nvm_bgm_reset:
 	ld	b, TOTAL_BGM_CHANNEL_COUNT
 	ld	iy, NVMBgmStart
@@ -92,83 +97,22 @@ nvm_bgm_reset:
 
 ; ------------------------------------------------------------------------------
 ;
-; Track Load
-;
-; ------------------------------------------------------------------------------
-nvm_load_track:
-	call	nvm_bgm_reset
-	; Set up tracks
-	ld	b, OPN_BGM_CHANNEL_COUNT
-	ld	hl, TrackBuffer+TRACKINFO.track_list_ptr
-	ld	e, (hl)
-	inc	hl
-	ld	d, (hl)
-	ld	hl, 0
-	add	hl, de
-	ld	iy, NBgmStart
--:
-	; de takes pointer to track
-	ld	a, (hl)
-	ld	e, a
-	inc	hl
-	ld	a, (hl)
-	ld	d, a
-	inc	hl
-	; see if pointer is null, and if so, skip it
-	ld	a, e
-	or	d
-	jr	z, .skip_track
-	; copy pointer and set track to active
-	ld	a, e
-	ld	(iy+NVM.pc), a
-	ld	a, d
-	ld	(iy+NVM.pc+1), a
-	ld	a, nvm_STATUS_ACTIVE
-	ld	(iy+NVM.status), a
-.skip_track:
-	ld	de, NVM.len
-	add	iy, de
-	djnz	-
-	; Set the timers.
-	ld	hl, TrackBuffer+TRACKINFO.ta
-	ld	de, OPN_ADDR0
-	ld	c, OPN_REG_TA_HI
-	ld	b, 3
--:
-	ld	a, c
-	ld	(de), a  ; addr
-	inc	de
-	ld	a, (hl)
-	ld	(de), a  ; data
-	dec	de
-	inc	hl
-	inc	c
-	djnz	-
-	ret
-
-; Assigns a track to an NVM channel
-; de = track head pointer
-nvm_set_head:
-	; Install the head pointer
-	ld	(iy+NVM.pc+1), d
-	ld	(iy+NVM.pc), e
-	; Mark channel as active
-	ld	(iy+NVM.status), nvm_STATUS_ACTIVE
-	ret
-
-
-; ------------------------------------------------------------------------------
-;
 ; Main Poll Function
 ;
 ; ------------------------------------------------------------------------------
 
 nvm_poll:
+	ld	de, (BgmInstrumentListPtr)
+	ld	(InstrumentListPtr), de
 	ld	b, OPN_BGM_CHANNEL_COUNT
-	ld	iy, NOpnBgm
+	ld	iy, NvmOpnBgm
 	call	nvm_poll_opn_sub
+
+	; Sound effects require some environment changes.
+	ld	de, (SfxInstrumentListPtr)
+	ld	(InstrumentListPtr), de
 	ld	b, OPN_SFX_CHANNEL_COUNT
-	ld	iy, NOpnSfx
+	ld	iy, NvmOpnSfx
 	call	nvm_poll_opn_sub
 	ret
 
@@ -387,9 +331,7 @@ nvm_op_inst:     ;
 	ld	e, (hl)
 	inc	hl
 	push	hl
-	ld	ix, TrackBuffer
-	ld	h, (ix+TRACKINFO.instrument_list_ptr+1)
-	ld	l, (ix+TRACKINFO.instrument_list_ptr)
+	ld	hl, (InstrumentListPtr)
 	add	hl, de  ; += instrument id offset
 	; de take the patch address, also stored in the ch state
 	ld	e, (hl)

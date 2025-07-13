@@ -6,25 +6,27 @@
 TEST_LENGTH = 6
 TEST_TIMER = 0C0h
 
-track_test:
-	dw	0           ; PCM Rate timer
-	db	TEST_TIMER  ; tempo timer
-	dw	.track_list
-	dw	.instruments_list
+bgm_test:
+	nTrackHeader bgm_test_end, 0, TEST_TIMER, .track_list, .instruments_list, .pcm_list
+
 .track_list:
-	dw	data_test_bass
-	dw	data_test_lead
-	dw	0
-	dw	data_test_bass_echo
-	dw	data_test_lead_echo
-	dw	0
-	dw	0
-	dw	0
-	dw	0
-	dw	0
+	nTrackRelPtr data_test_bass
+	nTrackRelPtr data_test_lead
+	nTrackNullPtr
+	nTrackRelPtr data_test_bass_echo
+	nTrackRelPtr data_test_lead_echo
+	nTrackNullPtr
+	nTrackNullPtr
+	nTrackNullPtr
+	nTrackNullPtr
+	nTrackNullPtr
+
 .instruments_list:
-	dw	.inst0_lead
-	dw	.inst1_bass
+	nTrackRelPtr .inst0_lead
+	nTrackRelPtr .inst1_bass
+	nTrackListEnd
+
+.pcm_list:
 
 .inst0_lead:
 	opnp_con_fb  2,  7
@@ -273,6 +275,4 @@ data_test_lead:
 	nRest TEST_LENGTH*7
 	nRet
 
-
-
-
+bgm_test_end:

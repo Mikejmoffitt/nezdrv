@@ -6,9 +6,8 @@
 
 	include	"src/mailbox.inc"
 	include	"src/nvm.inc"
-	include	"src/nvm_ops.inc"
+	include	"src/nvm_format.inc"
 	include	"src/opn.inc"
-	include	"src/trackdata.inc"
 	org	0000h
 v_rst0:
 	di                   ; 1 byte
@@ -17,14 +16,15 @@ v_rst0:
 	jr	start        ; 2 bytes
 	include	"src/pcm.s"
 	include	"src/main.s"
+	include	"src/interface.s"
 	include	"src/opn.s"
 	include	"src/nvm.s"
 	include	"src/vars.s"
 
-	; This is where data should be overlaid by the host.
-	org	NEZ_ORG
-TrackBuffer:
+
+
+	org	1400h
+
+
+	; Temporary data placement
 	include	"src/test_data.s"
-
-
-
