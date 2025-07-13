@@ -6,11 +6,13 @@ NEZ_STACK_DEPTH = 16
 
 TmpStart:
 
-InstrumentListPtr:     ds 2
+InstrumentListPtr:     ds 2  ; copied from either the sfx or bgm var
 SfxInstrumentListPtr:  ds 2
-
-BgmBufferPtr:          ds 2  ; SfxBuffer + size of SfxData
 BgmInstrumentListPtr:  ds 2
+
+BufferPtr:             ds 2  ; copied from either the sfx or bgm var
+SfxBufferPtr:          ds 2  ; UserBuffer
+BgmBufferPtr:          ds 2  ; UserBuffer + size of SfxData
 
 CurrentBank:           ds 1
 
@@ -31,7 +33,7 @@ TmpEnd:
 StackStart:            ds 2*NEZ_STACK_DEPTH
 StackEnd:
 
-SfxBuffer:
+UserBuffer:
 
 
 

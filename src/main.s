@@ -14,10 +14,14 @@ start:
 	ld	bc, TmpEnd-TmpStart
 	ldir
 	call	nvm_init
+	; TODO: Place this in interface once the mailbox works.
+	call	nvm_bgm_reset
+	call	opn_reset
 	ld	hl, bgm_test
 	call	nez_load_bgm_data
 
 main:
+	; TODO: check mailbox
 	; Wait for timer events.
 	ld	a, (OPN_BASE)
 	bit	1, a
@@ -34,5 +38,8 @@ main:
 	ld	a, OPN_TB_ACK
 	ld	(OPN_DATA0), a
 
-	call	nvm_poll
+	call	nvm_context_iter_opn_bgm_set
+	call	nvm_poll_opn
+	call	nvm_contest_iter_opn_sfx_set
+	call	nvm_poll_opn
 	jr	main

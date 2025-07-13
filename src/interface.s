@@ -2,20 +2,37 @@
 ;
 ; Track Load
 ;
-; You should call nez_load_sfx_data first.
+; You should call nez_load_sfx_data first as it sets BgmBufferPtr.
 ;
 ; ------------------------------------------------------------------------------
 
 ; hl = track head
 ; clobbers de, a
 nez_load_sfx_data:
-	ld	de, SfxBuffer
-	call	nez_load_inner_buffer_sub
-	ld	(BgmBufferPtr), de
+	call	nvm_context_sfx_set
+	call	nez_load_buffer_sub
+	ld	(BgmBufferPtr), de  ; This sets up the BGM buffer address.
+	; TODO: The SFX tracklist will have to be rebased, but not assigned.
+	call	nez_bgm_rebase_instruments_sub
+	ld	de, (InstrumentListPtr)
+	ld	(SfxInstrumentListPtr), de
+	ret
+
+; hl = track head
+; clobbers de, a
+nez_load_bgm_data:
+	call	nvm_context_bgm_set
+	call	nez_load_buffer_sub
+	call	nez_bgm_set_timers_sub
+	call	nez_bgm_assign_tracks_sub
+	call	nez_bgm_rebase_instruments_sub
+	ld	de, (InstrumentListPtr)
+	ld	(BgmInstrumentListPtr), de
 	ret
 
 ; hl = buffer
-nez_load_inner_buffer_sub:
+nez_load_buffer_sub:
+	ld	de, (BufferPtr)
 	; The first two bytes contain (byte count - 2).
 	ld	c, (hl)
 	inc	hl
@@ -24,46 +41,25 @@ nez_load_inner_buffer_sub:
 	ldir
 	ret
 
-; hl = track head
-; clobbers de, a
-nez_load_bgm_data:
-	push	hl
-	call	nvm_bgm_reset
-	call	opn_reset
-	pop	hl
-
-	; Copy all of the data.
-	ld	de, (BgmBufferPtr)
-	call	nez_load_inner_buffer_sub
-
-	call	nez_bgm_set_timers_sub
-	call	nez_bgm_assign_tracks_sub
-	call	nez_bgm_rebase_instruments_sub
-
-	; The PCM list... not sure what to do with it yet.
-	ret
-
 ; input: hl pointing to a list head offset
 ; output: hl pointing at the head of the list itself
-nez_hf_deref_relative_offs_sub:
+nez_hl_deref_relative_offs_sub:
 	ld	a, (hl)
 	ld	e, a
 	inc	hl
 	ld	a, (hl)
 	ld	d, a
-	ld	hl, (BgmBufferPtr)
+	ld	hl, (BufferPtr)
 	add	hl, de
 	ret
 
-
-
 nez_bgm_assign_tracks_sub:
 	; Track list = hl + TRACKINFO.track_list_offs
-	ld	hl, (BgmBufferPtr)
+	ld	hl, (BufferPtr)
 	ld	de, TRACKINFO.track_list_offs
 	ld	b, TOTAL_BGM_CHANNEL_COUNT
 	add	hl, de  ; hl now points to the track list offset value.
-	call	nez_hf_deref_relative_offs_sub
+	call	nez_hl_deref_relative_offs_sub
 
 	; Set up tracks by walking the track list.
 	ld	iy, NvmBgmStart
@@ -84,7 +80,7 @@ nez_bgm_assign_tracks_sub:
 
 	; copy pointer and set track to active
 	push	hl
-	ld	hl, (BgmBufferPtr)
+	ld	hl, (BufferPtr)
 	add	hl, de
 
 	ld	a, h
@@ -121,14 +117,14 @@ nez_bgm_set_timers_sub:
 
 nez_bgm_rebase_instruments_sub:
 	; Now hook up the instrument list.
-	ld	hl, (BgmBufferPtr)
+	ld	hl, (BufferPtr)
 	ld	de, TRACKINFO.instrument_list_offs
 	add	hl, de  ; hl now points to the instrument list
-	call	nez_hf_deref_relative_offs_sub
-	ld	(BgmInstrumentListPtr), hl
+	call	nez_hl_deref_relative_offs_sub
+	ld	(InstrumentListPtr), hl
 	; Rebase the list.
-	ld	de, (BgmBufferPtr)
-	ld	bc, (BgmInstrumentListPtr)
+	ld	de, (BufferPtr)
+	ld	bc, (InstrumentListPtr)
 .instrument_rebase_loop:
 	; Get instrument offset into hl
 	ld	a, (bc)

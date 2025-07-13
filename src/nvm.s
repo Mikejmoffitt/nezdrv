@@ -20,9 +20,10 @@ nvm_init:
 	add	iy, de
 	djnz	-
 
-	; BgmBufferPtr starts at SfxBuffer so that BGM works even without SFX.
-	ld	hl, SfxBuffer
+	; BgmBufferPtr starts at UserBuffer so that BGM works even without SFX.
+	ld	hl, UserBuffer
 	ld	(BgmBufferPtr), hl
+	ld	(SfxBufferPtr), hl
 
 	ret
 
@@ -64,10 +65,8 @@ nvm_reset_sub:
 	ld	(iy+NVM.vib_mag), a     ; no vibrato
 	ld	(iy+NVM.vib_cnt), a     ; v counter reset
 	; Set stack pointer
-	ld	a, iyh
-	ld	h, a
-	ld	a, iyl
-	ld	l, a
+	push	iy
+	pop	hl
 	ld	de, NVM.stack
 	add	hl, de
 	ld	(iy+NVM.stack_ptr+1), h
@@ -101,24 +100,30 @@ nvm_bgm_reset:
 ;
 ; ------------------------------------------------------------------------------
 
-nvm_poll:
+nvm_context_iter_opn_bgm_set:
+	ld	iy, NvmOpnBgm
+	ld	b, OPN_BGM_CHANNEL_COUNT
+nvm_context_bgm_set:
+	ld	de, (BgmBufferPtr)
+	ld	(BufferPtr), de
 	ld	de, (BgmInstrumentListPtr)
 	ld	(InstrumentListPtr), de
-	ld	b, OPN_BGM_CHANNEL_COUNT
-	ld	iy, NvmOpnBgm
-	call	nvm_poll_opn_sub
+	ret
 
-	; Sound effects require some environment changes.
-	ld	de, (SfxInstrumentListPtr)
-	ld	(InstrumentListPtr), de
+nvm_contest_iter_opn_sfx_set:
 	ld	b, OPN_SFX_CHANNEL_COUNT
 	ld	iy, NvmOpnSfx
-	call	nvm_poll_opn_sub
+nvm_context_sfx_set:
+	ld	de, (SfxBufferPtr)
+	ld	(BufferPtr), de
+	ld	de, (SfxInstrumentListPtr)
+	ld	(InstrumentListPtr), de
 	ret
+
 
 ; b = count
 ; iy = NVM head
-nvm_poll_opn_sub:
+nvm_poll_opn:
 .loop:
 	push	bc
 	; Skip inactive channels
@@ -131,6 +136,7 @@ nvm_poll_opn_sub:
 .next_chan:
 	ld	de, NVM.len
 	add	iy, de
+	rst	pcm_poll
 	pop	bc
 	djnz	.loop
 	ret
@@ -686,6 +692,7 @@ nvm_portamento:
 	compare_hl_r16 de
 	jr	nc, .now_freq_hl_commit  ; nope
 	; Adopt target and get out.
+.now_freq_de_commit:
 	portamento_write_now_freq_de
 	ret
 .target_freq_higher:
@@ -694,9 +701,7 @@ nvm_portamento:
 	; Did we surpass the target?
 	compare_hl_r16 de
 	jr	c, .now_freq_hl_commit  ; nope
-	; Adopt target and get out.
-	portamento_write_now_freq_de
-	ret
+	jr	.now_freq_de_commit  ; adopt target and get out.
 
 
 ; ------------------------------------------------------------------------------
