@@ -19,13 +19,13 @@ TrackInfo:      ds TRACKINFO.len
 	align	10h
 
 ; Playback channel state.
-NvmStart:
-NvmBgmStart:
-NvmOpnBgm:             ds NVM.len * OPN_BGM_CHANNEL_COUNT
-NvmPsgBgm:             ds NVM.len * PSG_BGM_CHANNEL_COUNT
-NvmSfxStart:
-NvmOpnSfx:             ds NVM.len * OPN_SFX_CHANNEL_COUNT
-NvmPsgSfx:             ds NVM.len * PSG_SFX_CHANNEL_COUNT
+NStart:
+NBgmStart:
+NOpnBgm:             ds NVM.len * OPN_BGM_CHANNEL_COUNT
+NPsgBgm:             ds NVM.len * PSG_BGM_CHANNEL_COUNT
+NSfxStart:
+NOpnSfx:             ds NVM.len * OPN_SFX_CHANNEL_COUNT
+NPsgSfx:             ds NVM.len * PSG_SFX_CHANNEL_COUNT
 
 TmpEnd:
 

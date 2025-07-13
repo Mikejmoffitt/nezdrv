@@ -11,7 +11,7 @@
 nvm_init:
 	ld	hl, .channel_id_tbl
 	ld	b, TOTAL_CHANNEL_COUNT
-	ld	iy, NvmStart
+	ld	iy, NStart
 -:
 	ld	a, (hl)
 	push	hl
@@ -105,7 +105,7 @@ nvm_load_track:
 	ld	d, (hl)
 	ld	hl, 0
 	add	hl, de
-	ld	iy, NvmBgmStart
+	ld	iy, NBgmStart
 -:
 	; de takes pointer to track
 	ld	a, (hl)
@@ -165,10 +165,10 @@ nvm_set_head:
 
 nvm_poll:
 	ld	b, OPN_BGM_CHANNEL_COUNT
-	ld	iy, NvmOpnBgm
+	ld	iy, NOpnBgm
 	call	nvm_poll_opn_sub
 	ld	b, OPN_SFX_CHANNEL_COUNT
-	ld	iy, NvmOpnSfx
+	ld	iy, NOpnSfx
 	call	nvm_poll_opn_sub
 	ret
 

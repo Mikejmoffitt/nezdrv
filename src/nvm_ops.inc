@@ -98,11 +98,11 @@ nRet macro
 	db	NVM_RET
 	endm
 
-NLpSet macro lpcount
+nLpSet macro lpcount
 	db	NVM_LOOPSET, lpcount
 	endm
 
-NLpEnd macro
+nLpEnd macro
 	db	NVM_LOOPEND
 	endm
 
