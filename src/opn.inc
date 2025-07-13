@@ -33,6 +33,9 @@ OPN_TB_ACK = 2Fh
 OPN_PAN_L = 80h
 OPN_PAN_R = 40h
 
+OPN_PMS_SHIFT = 0
+OPN_AMS_SHIFT = 4
+
 ; Tuning
 OPN_NOTE_C     = 644
 OPN_NOTE_Cs    = 681

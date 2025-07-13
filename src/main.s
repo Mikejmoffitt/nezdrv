@@ -13,26 +13,26 @@ start:
 	ld	(hl), 00h  ; First byte is initialized with clear value 00h
 	ld	bc, TmpEnd-TmpStart
 	ldir
-	call	avm_init
-	call	avm_load_track
+	call	nvm_init
+	call	nvm_load_track
 
 main:
 	; Wait for timer events.
 	ld	a, (OPN_BASE)
 	bit	1, a
-	jr	nz, .run_avm
+	jr	nz, .run_nvm
 	bit	0, a
 	jr	z, main
 	rst	pcm_poll
 	jr	main
 
-.run_avm:
+.run_nvm:
 	; Ack timer B
 	ld	a, OPN_REG_TCTRL
 	ld	(OPN_ADDR0), a
 	ld	a, OPN_TB_ACK
 	ld	(OPN_DATA0), a
 
-	call	avm_poll
+	call	nvm_poll
 ;	call	keydown_test_func
 	jr	main

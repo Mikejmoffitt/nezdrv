@@ -57,3 +57,15 @@ jptbl_dispatch	macro
 	ld	($+4), a
 	jr	$+0  ; overwritten by modifying code
 	endm
+
+; a = bank number (covering bits 15-21) total of 91 cycles
+bank_set	macro
+	rept	7
+	ld	(hl), a     ; 7
+	rrca                ; 4
+	endm
+	rept	2
+	ld	(hl), h     ; 7, to write a 0
+	endm
+
+	endm

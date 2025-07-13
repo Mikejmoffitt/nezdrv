@@ -12,11 +12,11 @@ track_test:
 	dw	.track_list
 	dw	.instruments_list
 .track_list:
-	dw	avm_data_test_bass
-	dw	avm_data_test_lead
+	dw	data_test_bass
+	dw	data_test_lead
 	dw	0
-	dw	avm_data_test_bass_echo
-	dw	avm_data_test_lead_echo
+	dw	data_test_bass_echo
+	dw	data_test_lead_echo
 	dw	0
 	dw	0
 	dw	0
@@ -28,14 +28,14 @@ track_test:
 
 .inst0_lead:
 	opnp_con_fb  2,  7
-	opnp_mul_dt  2,  0  ; 0
+	opnp_mul_dt  1,  0  ; 0
 	opnp_mul_dt  0,  0  ; 2
 	opnp_mul_dt  0,  0  ; 1
 	opnp_mul_dt  1,  0  ; 3
-	opnp_tl     27      ; 0
+	opnp_tl     22      ; 0
 	opnp_tl     63      ; 2
 	opnp_tl      9      ; 1
-	opnp_tl      1      ; 3
+	opnp_tl      0      ; 3
 	opnp_ar_ks  31,  0  ; 0
 	opnp_ar_ks  31,  0  ; 2
 	opnp_ar_ks  31,  0  ; 1
@@ -43,7 +43,7 @@ track_test:
 	opnp_dr_am   0,  0  ; 0
 	opnp_dr_am   0,  0  ; 2
 	opnp_dr_am   0,  0  ; 1
-	opnp_dr_am  15,  0  ; 3
+	opnp_dr_am  10,  0  ; 3
 	opnp_sr      0      ; 0
 	opnp_sr      0      ; 2
 	opnp_sr      0      ; 1
@@ -92,174 +92,187 @@ track_test:
 ;
 ;
 ;
-avm_data_test_bass_init_sub:
-	db	AVM_INST, 2
-	db	AVM_LENGTH, TEST_LENGTH
-	db	AVM_OCT, 3*8
-	db	AVM_RET
+data_test_bass_init_sub:
+	nInst	1
+	nLength	TEST_LENGTH
+	nOct	3
+	nRet
 
-avm_data_test_bass_echo:
-	db	AVM_CALL
-	dw	avm_data_test_bass_init_sub
-	db	AVM_VOL, 09h
-	db	AVM_REST, 3*TEST_LENGTH/2
-	db	AVM_JUMP
-	dw	avm_data_test_bass.loop
+data_test_bass_echo:
+	nCall	data_test_bass_init_sub
+	nVol	74h
+	nRest	3*TEST_LENGTH/2
+	nJump	data_test_bass.start
 
-avm_data_test_bass:
-	db	AVM_CALL
-	dw	avm_data_test_bass_init_sub
-	db	AVM_VOL, 00h
+data_test_bass:
+	nCall	data_test_bass_init_sub
+	nVol	7Fh
+.start:
+	nRest	TEST_LENGTH*3
 .loop:
-;	db	AVM_CALL
-;	dw	.ptest_sub
-;	db	AVM_JUMP
-;	dw	.loop
-	db	AVM_CALL
-	dw	.pt1_sub
-	db	AVM_JUMP
-	dw	.loop
+	nCall	.pt1_sub
+	nJump	.loop
 
 .pt1_sub:
-	db	AVM_NOTE_C
-	db	AVM_REST, 0
-	db	AVM_NOTE_E
-	db	AVM_NOTE_G
-	db	AVM_OCT_UP, AVM_NOTE_C, AVM_OCT_DOWN
-	db	AVM_NOTE_G
-	db	AVM_NOTE_C
+	nC TEST_LENGTH*2
+	nE
+	nG
+	nOctUp
+	nC
+	nOctDn
+	nG
+	nC
 
-	db	AVM_OCT_DOWN, AVM_NOTE_Bb
-	db	AVM_REST, 0
-	db	AVM_NOTE_Bb, AVM_OCT_UP
-	db	AVM_NOTE_D
-	db	AVM_NOTE_F
-	db	AVM_NOTE_Bb
-	db	AVM_NOTE_F
-	db	AVM_OCT_DOWN, AVM_NOTE_Bb
-	db	AVM_REST, 0
-	db	AVM_OCT_UP
-	dw	AVM_RET
-
-.ptest_sub:
-	db	AVM_LENGTH, 020h
-	db	AVM_NOTE_C
-	db	AVM_NOTE_E
-	db	AVM_NOTE_G
-	db	AVM_OCT_UP, AVM_NOTE_C, AVM_OCT_DOWN
-	dw	AVM_RET
+	nOctDn
+	nBb TEST_LENGTH*2
+	nBb
+	nOctUp
+	nD
+	nF
+	nBb
+	nF
+	nOctDn
+	nBb TEST_LENGTH*2
+	nOctUp
+	nRet
 
 ;
 ;
 ;
-avm_data_test_lead_init_sub:
-	db	AVM_INST, 0
-	db	AVM_LENGTH, TEST_LENGTH
-	db	AVM_OCT, 5*8
-	db	AVM_SLIDE, 50
-	db	AVM_RET
+data_test_lead_init_sub:
+	nInst	0
+	nLength	TEST_LENGTH
+	nOct	4
+	nRet
 
-avm_data_test_lead_echo:
-	db	AVM_CALL
-	dw	avm_data_test_lead_init_sub
-	db	AVM_VOL, 12h
-	db	AVM_REST, TEST_LENGTH
-	db	AVM_JUMP
-	dw	avm_data_test_lead.loop
+data_test_lead_echo:
+	nCall	data_test_lead_init_sub
+	nVol	72h
+	nPanL
+	nRest	3*TEST_LENGTH/2
+	nJump	data_test_lead.loop
 
-avm_data_test_lead:
-	db	AVM_CALL
-	dw	avm_data_test_lead_init_sub
-	db	AVM_PAN, OPN_PAN_R
-	db	AVM_VOL, 00h
+data_test_lead:
+	nCall	data_test_lead_init_sub
+	nVol	7Fh
 .loop:
-	db	AVM_LOOPSET, 2
-	db	AVM_CALL
-	dw	.pt1_sub
-	db	AVM_CALL
-	dw	.pt1_sub
-	db	AVM_CALL
-	dw	.pt2_sub
-	db	AVM_JUMP
-	dw	.loop
+	nCall	.pre_sub
+	nCall	.pt1_sub
+	nCall	.pt1_sub
+	nCall	.pt2_sub
+	nCall	.pt3_sub
+	nCall	.pt3a_sub
+	nJump	.loop
+
+.pre_sub:
+	nG
+	nF
+	nNoteOff
+	nRest
+	nRet
 
 .pt1_sub:
-	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, TEST_LENGTH*3
-	db	AVM_NOTE_Eb
-	db	AVM_NOTE_E
-	db	AVM_NOTE_D
-	db	AVM_NOTE_C | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
+	nE TEST_LENGTH*3
+	nD
+	nE
+	nD
+	nC TEST_LENGTH*2
 
-	db	AVM_NOTE_D | AVM_NOTE_REST_FLAG, TEST_LENGTH*3
-	db	AVM_NOTE_C
-	db	AVM_NOTE_D
-	db	AVM_NOTE_C, AVM_OCT_DOWN
-	db	AVM_NOTE_Bb | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_Bb | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_OCT_UP
-	db	AVM_NOTE_C | AVM_NOTE_REST_FLAG, TEST_LENGTH*11
-	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_Eb
-	dw	AVM_RET
+	nD TEST_LENGTH*3
+	nC
+	nD
+	nC
+	nOctDn
+	nBb TEST_LENGTH*2
+	nBb TEST_LENGTH*2
+	nOctUp
+	nC TEST_LENGTH*11
+	nE TEST_LENGTH*2
+	nEb
+	nRet
 
 .pt2_sub:
-	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_F | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_G | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_A
-	db	AVM_NOTE_As, AVM_NOTE_OFF
-	db	AVM_REST, TEST_LENGTH*8
-	db	AVM_NOTE_As | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_A | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_G | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_F
-	db	AVM_NOTE_G, AVM_NOTE_OFF
-	db	AVM_REST, TEST_LENGTH*8
-	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_F | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_G | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_A | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_As | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_A | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_G | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_F | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_G | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_Eb
-	db	AVM_NOTE_E, AVM_NOTE_OFF
-	db	AVM_REST, TEST_LENGTH*3
-	db	AVM_NOTE_E | AVM_NOTE_REST_FLAG, TEST_LENGTH*2
-	db	AVM_NOTE_D
-	db	AVM_NOTE_C
-	db	AVM_OCT_DOWN, AVM_NOTE_Bb, AVM_OCT_UP
-	db	AVM_RET
-
-avm_data_test_sweeps:
-	db	AVM_CALL
-	dw	avm_data_test_bass_init_sub
-
-	; octave sweep
-	db	AVM_OCT, 0
-	db	AVM_LENGTH, 30
-	db	AVM_NOTE_C
-	rept	7
-	db	AVM_NOTE_C, AVM_OCT_UP
-	endm
-	; note sweep
-	db	AVM_OCT, 3*8
-	db	AVM_LENGTH, 40
-	db	AVM_NOTE_C
-	db	AVM_NOTE_Cs
-	db	AVM_NOTE_D
-	db	AVM_NOTE_Ds
-	db	AVM_NOTE_E
-	db	AVM_NOTE_F
-	db	AVM_NOTE_Fs
-	db	AVM_NOTE_G
-	db	AVM_NOTE_Gs
-	db	AVM_NOTE_A
-	db	AVM_NOTE_As
-	db	AVM_NOTE_B
-	db	AVM_OCT_UP, AVM_NOTE_C | AVM_NOTE_REST_FLAG, 48
+	nLength TEST_LENGTH*2
+	nE
+	nF
+	nG
+	nLength TEST_LENGTH
+	nA
+	nAs
+	nNoteOff
+	nRest	TEST_LENGTH*8
+	nLength TEST_LENGTH*2
+	nAs
+	nA
+	nG
+	nLength TEST_LENGTH
+	nF
+	nG
+	nNoteOff
+	nRest	TEST_LENGTH*8
+	nLength	TEST_LENGTH*2
+	nE
+	nF
+	nG
+	nA
+	nAs
+	nA
+	nG
+	nF
+	nG
+	nE
+	nE
+	nLength	TEST_LENGTH
+	nEb
+	nE
+	nNoteOff
+	nRest	TEST_LENGTH*3
+	nRet
 	
+.pt3_sub:
+	nLpSet	2
+	nCall	.pt3_inner
+	nRest TEST_LENGTH*4
+	nLpEnd
+	nCall	.pt3_inner
+	nRet
+
+.pt3_inner:
+	nE TEST_LENGTH*2
+	nD
+	nC
+	nOctDn
+	nBb
+	nOctUp
+
+	nC TEST_LENGTH*2
+	nOctDn
+	nBb
+	nNoteOff
+	nOctUp
+	nRest TEST_LENGTH*4
+	nRet
+
+.pt3a_sub:
+	nOctDn
+	nG
+	nBb
+	nOctUp
+	nLpSet	4
+	nC
+	nLpEnd
+	nNoteOff
+	nRest
+	nD
+	nC TEST_LENGTH*5
+	nOctDn
+	nBb
+	nG
+	nNoteOff
+	nOctUp
+	nRest TEST_LENGTH*7
+	nRet
+
+
+
+
