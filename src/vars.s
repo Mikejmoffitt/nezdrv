@@ -10,13 +10,22 @@ InstrumentListPtr:     ds 2  ; copied from either the sfx or bgm var
 SfxInstrumentListPtr:  ds 2
 BgmInstrumentListPtr:  ds 2
 
+PcmListPtr:            ds 2
+SfxPcmListPtr:         ds 2
+BgmPcmListPtr:         ds 2
+
+GlobalVolume:          ds 1
+BgmGlobalVolume:       ds 1
+SfxGlobalVolume:       ds 1
+
 BufferPtr:             ds 2  ; copied from either the sfx or bgm var
 SfxBufferPtr:          ds 2  ; UserBuffer
 BgmBufferPtr:          ds 2  ; UserBuffer + size of SfxData
 
+SfxTrackListPtr:       ds 2
+
 CurrentBank:           ds 1
 
-TrackInfo:      ds TRACKINFO.len
 	align	10h
 
 ; Playback channel state.
@@ -38,5 +47,10 @@ UserBuffer:
 
 
 
-	org Z80_RAM_BYTES-NEZMAILBOX.len
-MailBox:               ds NEZMAILBOX.len
+	org Z80_RAM_BYTES-0020h
+MailBoxMemStart:
+MailBoxSfxQueue:       ds TOTAL_SFX_CHANNEL_COUNT
+	align	10h
+MailBoxCommand:        ds 0Dh
+MailBoxReadySig:       ds 03h
+MailBoxMemEnd:

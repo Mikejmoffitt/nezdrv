@@ -8,10 +8,6 @@
 ; Track header definition.
 ;
 
-nTrackNullPtr macro
-	dw	0
-	endm
-
 nTrackRelPtr macro lbl
 	dw	lbl-NEZ_TRACK_BASE-2
 	endm

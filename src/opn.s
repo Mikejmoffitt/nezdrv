@@ -50,13 +50,13 @@ opn_set_base_de_sub:
 	opn_set_base_de
 	ret
 
-opn_wait_sub:
-	ld	hl, OPN_BASE
-.wait:
-	ld	a, (hl)
-	and	a
-	ret	p
-	jr	.wait
+;opn_wait_sub:
+	;ld	hl, OPN_BASE
+;.wait:
+	;ld	a, (hl)
+	;and	a
+	;ret	p
+	;jr	.wait
 
 
 

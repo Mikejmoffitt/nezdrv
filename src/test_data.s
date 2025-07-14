@@ -10,16 +10,18 @@ bgm_test:
 	nTrackHeader bgm_test_end, 0, TEST_TIMER, .track_list, .instruments_list, .pcm_list
 
 .track_list:
-	nTrackRelPtr data_test_bass
-	nTrackRelPtr data_test_lead
-	nTrackNullPtr
-	nTrackRelPtr data_test_bass_echo
-	nTrackRelPtr data_test_lead_echo
-	nTrackNullPtr
-	nTrackNullPtr
-	nTrackNullPtr
-	nTrackNullPtr
-	nTrackNullPtr
+	nTrackRelPtr track_sl_bass
+	nTrackRelPtr track_sl_lead
+	nTrackRelPtr track_sl_unused
+	nTrackRelPtr track_sl_bass_echo
+	nTrackRelPtr track_sl_lead_echo
+	nTrackRelPtr track_sl_unused
+
+	nTrackRelPtr track_sl_unused
+	nTrackRelPtr track_sl_unused
+	nTrackRelPtr track_sl_unused
+	nTrackRelPtr track_sl_unused
+	nTrackListEnd
 
 .instruments_list:
 	nTrackRelPtr .inst0_lead
@@ -27,6 +29,7 @@ bgm_test:
 	nTrackListEnd
 
 .pcm_list:
+	nTrackListEnd
 
 .inst0_lead:
 	opnp_con_fb  2,  7
@@ -94,20 +97,24 @@ bgm_test:
 ;
 ;
 ;
-data_test_bass_init_sub:
+track_sl_unused:
+	nStop
+
+
+track_sl_bass_init_sub:
 	nInst	1
 	nLength	TEST_LENGTH
 	nOct	3
 	nRet
 
-data_test_bass_echo:
-	nCall	data_test_bass_init_sub
+track_sl_bass_echo:
+	nCall	track_sl_bass_init_sub
 	nVol	74h
 	nRest	3*TEST_LENGTH/2
-	nJump	data_test_bass.start
+	nJump	track_sl_bass.start
 
-data_test_bass:
-	nCall	data_test_bass_init_sub
+track_sl_bass:
+	nCall	track_sl_bass_init_sub
 	nVol	7Fh
 .start:
 	nRest	TEST_LENGTH*3
@@ -141,21 +148,21 @@ data_test_bass:
 ;
 ;
 ;
-data_test_lead_init_sub:
+track_sl_lead_init_sub:
 	nInst	0
 	nLength	TEST_LENGTH
 	nOct	4
 	nRet
 
-data_test_lead_echo:
-	nCall	data_test_lead_init_sub
+track_sl_lead_echo:
+	nCall	track_sl_lead_init_sub
 	nVol	72h
 	nPanL
 	nRest	3*TEST_LENGTH/2
-	nJump	data_test_lead.loop
+	nJump	track_sl_lead.loop
 
-data_test_lead:
-	nCall	data_test_lead_init_sub
+track_sl_lead:
+	nCall	track_sl_lead_init_sub
 	nVol	7Fh
 .loop:
 	nCall	.pre_sub

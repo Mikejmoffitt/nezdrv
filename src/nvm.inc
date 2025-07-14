@@ -15,7 +15,7 @@ TOTAL_BGM_CHANNEL_COUNT = OPN_BGM_CHANNEL_COUNT+PSG_BGM_CHANNEL_COUNT
 TOTAL_SFX_CHANNEL_COUNT = OPN_SFX_CHANNEL_COUNT+PSG_SFX_CHANNEL_COUNT
 TOTAL_CHANNEL_COUNT = TOTAL_BGM_CHANNEL_COUNT+TOTAL_SFX_CHANNEL_COUNT
 
-NVM_STACK_DEPTH = 8
+NVM_STACK_DEPTH = 5
 
 NVM_STATUS_INACTIVE = 0
 NVM_STATUS_ACTIVE = 1
@@ -56,9 +56,11 @@ tgt_block:   ds 1
 key_pending: ds 1  ; if true, awaiting a key on event.
 
 ; Vibrato
-vib_mag:     ds 1  ; vibrato magnitude, 0-F.
+vib_tbl:     ds 2  ; set when vibrato command is set.
+vib_mag:     ds 1  ; vibrato magnitude.
 vib_speed:   ds 1
-vib_cnt:     ds 1
+vib_cnt:     ds 1  ;
+vib_out:     ds 1
 
 ; OPN-specific state
 patch_ptr:   ds 2
@@ -69,14 +71,13 @@ pan:         ds 1  ; pan/ams/pms register.
 NVM endstruct
 
 
-;
-; Header at the start of a track in ROM. This data is copied in one form or
-; another into Z80 RAM.
-;
-TRACKINFO struct
-ta:                    ds 2  ; Timer A value (PCM rate)
-tb:                    ds 1  ; Timer B value (tempo control)
-track_list_offs:       ds 2  ; Offset from this header.
-instrument_list_offs:  ds 2  ; "
-pcm_list_offs:         ds 2  ; "
-TRACKINFO endstruct
+; Header defining a header for a blob of track data (BGM or SFX).
+; Two bytes preceed it with a word that contains the byte count of the data.
+NEZINFO struct
+ta:                    ds 2  ; Timer A value (PCM rate) (ignored for SFX)
+tb:                    ds 1  ; Timer B value (tempo control) (ignored for SFX)
+; Null-terminated lists that are relative to the start of the data blob.
+track_list_offs:       ds 2  ; For SFX, these are the effect indices.
+instrument_list_offs:  ds 2
+pcm_list_offs:         ds 2
+NEZINFO endstruct

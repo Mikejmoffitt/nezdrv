@@ -15,7 +15,9 @@ v_rst0:
 	ld	sp, StackEnd ; 3 bytes
 	jr	start        ; 2 bytes
 	include	"src/pcm.s"
+	include	"src/bank.s"
 	include	"src/main.s"
+	include	"src/mailbox.s"
 	include	"src/interface.s"
 	include	"src/opn.s"
 	include	"src/nvm.s"
@@ -23,8 +25,6 @@ v_rst0:
 
 
 
-	org	1400h
-
-
+	;org	1400h
 	; Temporary data placement
-	include	"src/test_data.s"
+	;include	"src/test_data.s"

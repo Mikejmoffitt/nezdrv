@@ -11,11 +11,20 @@
 nez_load_sfx_data:
 	call	nvm_context_sfx_set
 	call	nez_load_buffer_sub
+	; Timers are not set.
 	ld	(BgmBufferPtr), de  ; This sets up the BGM buffer address.
-	; TODO: The SFX tracklist will have to be rebased, but not assigned.
-	call	nez_bgm_rebase_instruments_sub
+	call	nez_load_standard_rebase_sub
+
 	ld	de, (InstrumentListPtr)
 	ld	(SfxInstrumentListPtr), de
+	ld	de, (PcmListPtr)
+	ld	(SfxPcmListPtr), de
+
+	; Sfx track pointer is needed to handle cue commands.
+	ld	de, NEZINFO.track_list_offs
+	call	nez_get_list_head_sub
+	ld	(SfxTrackListPtr), hl
+
 	ret
 
 ; hl = track head
@@ -23,11 +32,13 @@ nez_load_sfx_data:
 nez_load_bgm_data:
 	call	nvm_context_bgm_set
 	call	nez_load_buffer_sub
-	call	nez_bgm_set_timers_sub
+	call	nez_load_standard_rebase_sub
 	call	nez_bgm_assign_tracks_sub
-	call	nez_bgm_rebase_instruments_sub
+	call	nez_bgm_set_timers_sub
 	ld	de, (InstrumentListPtr)
 	ld	(BgmInstrumentListPtr), de
+	ld	de, (PcmListPtr)
+	ld	(BgmPcmListPtr), de
 	ret
 
 ; hl = buffer
@@ -53,57 +64,47 @@ nez_hl_deref_relative_offs_sub:
 	add	hl, de
 	ret
 
+; The list is null-terminated.
 nez_bgm_assign_tracks_sub:
-	; Track list = hl + TRACKINFO.track_list_offs
+	; Track list = hl + NEZINFO.track_list_offs
 	ld	hl, (BufferPtr)
-	ld	de, TRACKINFO.track_list_offs
-	ld	b, TOTAL_BGM_CHANNEL_COUNT
+	ld	de, NEZINFO.track_list_offs
 	add	hl, de  ; hl now points to the track list offset value.
 	call	nez_hl_deref_relative_offs_sub
 
 	; Set up tracks by walking the track list.
 	ld	iy, NvmBgmStart
--:
-	; Load DE with the offset from the list.
+.loop:
+	; Load DE with the entry from the list.
 	ld	a, (hl)
 	ld	e, a
 	inc	hl
 	ld	a, (hl)
 	ld	d, a
 	inc	hl
-	; see if pointer is null, and if so, skip it
+	; see if pointer is null, and if so, stop assigning tracks.
 	ld	a, e
 	or	d
-	jr	z, .skip_track
-
-	; de now contains the list entry; sum with the base pointer value
-
-	; copy pointer and set track to active
-	push	hl
-	ld	hl, (BufferPtr)
-	add	hl, de
-
-	ld	a, h
-	ld	(iy+NVM.pc+1), a
-	ld	a, l
-	ld	(iy+NVM.pc), a
-	pop	hl
+	ret	z
+	; copy pointer and proceed
+	ld	(iy+NVM.pc+1), d
+	ld	(iy+NVM.pc), e
 	ld	(iy+NVM.status), nvm_STATUS_ACTIVE
-.skip_track:
+.next_track:
 	ld	de, NVM.len
 	add	iy, de
-	djnz	-
+	jr	.loop
 	ret
 
 nez_bgm_set_timers_sub:
 	; Set the timers.
 	ld	hl, (BgmBufferPtr)
-	ld	de, TRACKINFO.ta
+	ld	de, NEZINFO.ta
 	add	hl, de
 	ld	de, OPN_ADDR0
 	ld	c, OPN_REG_TA_HI
 	ld	b, 3
--:
+.loop:
 	ld	a, c
 	ld	(de), a  ; addr
 	inc	de
@@ -112,20 +113,51 @@ nez_bgm_set_timers_sub:
 	dec	de
 	inc	hl
 	inc	c
-	djnz	-
+	djnz	.loop
 	ret
 
-nez_bgm_rebase_instruments_sub:
-	; Now hook up the instrument list.
-	ld	hl, (BufferPtr)
-	ld	de, TRACKINFO.instrument_list_offs
-	add	hl, de  ; hl now points to the instrument list
-	call	nez_hl_deref_relative_offs_sub
+;
+; Rebasing the lists copied from the data. Be sure to set context first.
+;
+nez_load_standard_rebase_sub:
+	call	nez_rebase_tracks
+	call	nez_rebase_instruments
+	jr	nez_rebase_pcm
+
+nez_rebase_tracks:
+	ld	de, NEZINFO.track_list_offs
+	call	nez_get_list_head_sub
+	jr	nez_rebase_relative_list_sub
+
+nez_rebase_instruments:
+	ld	de, NEZINFO.instrument_list_offs
+	call	nez_get_list_head_sub
 	ld	(InstrumentListPtr), hl
+	jr	nez_rebase_relative_list_sub
+
+nez_rebase_pcm:
+	ld	de, NEZINFO.pcm_list_offs
+	call	nez_get_list_head_sub
+	ld	(PcmListPtr), hl
+	jr	nez_rebase_relative_list_sub
+
+; de = NEZINFO offset
+; returns head in hl
+nez_get_list_head_sub:
+	ld	hl, (BufferPtr)
+	add	hl, de  ; hl now points to the instrument list
+	jp	nez_hl_deref_relative_offs_sub
+
+
+; rebases a relative offset list against BufferPtr (nullptr-terminated).
+; hl = list head
+nez_rebase_relative_list_sub:
 	; Rebase the list.
 	ld	de, (BufferPtr)
-	ld	bc, (InstrumentListPtr)
-.instrument_rebase_loop:
+	; get hl into bc; we need it but will be doing math on hl.
+	push	hl
+	pop	bc
+.rebase_loop:
 	; Get instrument offset into hl
 	ld	a, (bc)
 	inc	bc
@@ -135,15 +167,21 @@ nez_bgm_rebase_instruments_sub:
 	ld	h, a
 	; test if it's nullptr and finish if so.
 	or	l
-	ret	z
+	jr	nz, +
+	; nullptr gets written to the list as-is and we're done.
+	ld	a, 00h
+	ld	(bc), a
+	inc	bc
+	ld	(bc), a
+	ret
++:
 	; add bgm buffer pointer
 	add	hl, de
-	; and write it back.
+	; and write it back
 	ld	a, l
 	ld	(bc), a
 	inc	bc
 	ld	a, h
 	ld	(bc), a
 	inc	bc
-	jr	.instrument_rebase_loop
-	ret
+	jr	.rebase_loop

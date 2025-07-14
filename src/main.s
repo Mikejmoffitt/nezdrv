@@ -2,26 +2,37 @@
 ; Driver main loop.
 ;
 
-start:
-	call	opn_init
-	; Clear work RAM
-	ld	hl, TmpStart
+; hl = region
+; bc = bytes
+mem_clear_sub:
 	; DE := hl + 1
 	ld	e, l
 	ld	d, h
 	inc	de
 	ld	(hl), 00h  ; First byte is initialized with clear value 00h
-	ld	bc, TmpEnd-TmpStart
 	ldir
+	ret
+
+start:
+	call	opn_init
+	; Clear work RAM
+	ld	hl, TmpStart
+	ld	bc, TmpEnd-TmpStart
+	call	mem_clear_sub
 	call	nvm_init
 	; TODO: Place this in interface once the mailbox works.
-	call	nvm_bgm_reset
 	call	opn_reset
-	ld	hl, bgm_test
-	call	nez_load_bgm_data
+;	ld	hl, bgm_test
+;	call	nez_load_bgm_data
+	call	mailbox_init
 
 main:
 	; TODO: check mailbox
+	ld	a, (MailBoxCommand+NEZMB.cmd)
+	and	a
+	jr	z, +
+	call	mailbox_handle_cmd
++:
 	; Wait for timer events.
 	ld	a, (OPN_BASE)
 	bit	1, a

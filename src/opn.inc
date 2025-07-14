@@ -50,6 +50,9 @@ OPN_NOTE_A     = 1081
 OPN_NOTE_As    = 1146
 OPN_NOTE_B     = 1214
 
+; The Fn register has a range of 0-2048, so this table sits in the middle to
+; allow vibrato to have a safe range even at high amplitude.
+
 OPN_NOTE_Db = OPN_NOTE_Cs
 OPN_NOTE_Eb = OPN_NOTE_Ds
 OPN_NOTE_Gb = OPN_NOTE_Fs

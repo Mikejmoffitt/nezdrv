@@ -24,6 +24,9 @@ nvm_init:
 	ld	hl, UserBuffer
 	ld	(BgmBufferPtr), hl
 	ld	(SfxBufferPtr), hl
+	xor	a
+	ld	(BgmGlobalVolume), a
+	ld	(SfxGlobalVolume), a
 
 	ret
 
@@ -108,6 +111,10 @@ nvm_context_bgm_set:
 	ld	(BufferPtr), de
 	ld	de, (BgmInstrumentListPtr)
 	ld	(InstrumentListPtr), de
+	ld	de, (BgmPcmListPtr)
+	ld	(PcmListPtr), de
+	ld	a, (BgmGlobalVolume)
+	ld	(GlobalVolume), a
 	ret
 
 nvm_contest_iter_opn_sfx_set:
@@ -118,6 +125,10 @@ nvm_context_sfx_set:
 	ld	(BufferPtr), de
 	ld	de, (SfxInstrumentListPtr)
 	ld	(InstrumentListPtr), de
+	ld	de, (SfxPcmListPtr)
+	ld	(PcmListPtr), de
+	ld	a, (SfxGlobalVolume)
+	ld	(GlobalVolume), a
 	ret
 
 
@@ -190,7 +201,6 @@ nvm_exec_opn:
 	jp	nvm_op_pcmrate  ; 20
 
 ; ------------------------------------------------------------------------------
-
 
 ; This routine is modified based on whether it is OPN or PSG execution.
 nvm_op_finished:
@@ -478,7 +488,8 @@ nvm_op_note:
 	;
 
 tlmod macro opno
-	ld	a, (iy+NVM.tl+opno)
+	ld	a, (GlobalVolume)
+	add	a, (iy+NVM.tl+opno)
 	add	a, (iy+NVM.volume)
 	cp	80h
 	jr	c, +

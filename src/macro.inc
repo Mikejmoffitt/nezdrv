@@ -58,14 +58,30 @@ jptbl_dispatch	macro
 	jr	$+0  ; overwritten by modifying code
 	endm
 
-; a = bank number (covering bits 15-21) total of 91 cycles
-bank_set	macro
+;
+; a = bank number (covering bits 15-21) total of 101 cycles.
+;
+; A way to slightly speed this up would be to pre-calculate something like this,
+; accomplishing the bank switch in "only" 73 cycles at the expense of 12 bytes.
+; Of course, that's only possible for constant data. However, a table of bank
+; switching routines could be set up and modified based on the correpsonding
+; samples being switched.
+;
+; ld	hl, BANK_SEL  ; 6001h      | 10 cycles, three bytes
+; ld	(hl), h                    | 7 cycles, one byte
+; From here on, eight bits are assembled to load either h or l based on
+; the established bank index. Register h forms a functioning 0 while l is a 1.
+; ld	(hl), h/l     ; Bit 23 (0) |  7 cycles, one byte
+;
+; This occurs in a total of 101 cycles.
+bank_set_inline	macro
+	ld	hl, BANK_SEL  ; 10 cycles
+
+	ld	(hl), a       ; 7 cycles; A15 bit
 	rept	7
-	ld	(hl), a     ; 7
-	rrca                ; 4
+	rrca                  ; 4 cycles
+	ld	(hl), a       ; 7 cycles; A16-A22 bits
 	endm
-	rept	2
-	ld	(hl), h     ; 7, to write a 0
-	endm
+	ld	(hl), l       ; 7 cycles; A23 bit, a constant 0
 
 	endm
