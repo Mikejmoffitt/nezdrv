@@ -67,6 +67,7 @@ nvm_reset_sub:
 	ld	(iy+NVM.portamento), a  ; no portamento
 	ld	(iy+NVM.vib_mag), a     ; no vibrato
 	ld	(iy+NVM.vib_cnt), a     ; v counter reset
+	ld	(iy+NVM.rest_cnt), a
 	; Set stack pointer
 	push	iy
 	pop	hl
@@ -78,8 +79,12 @@ nvm_reset_sub:
 	ld	(iy+NVM.rest_val), nvm_REST_DEFAULT
 	; default to both outputs, no modulation
 	ld	(iy+NVM.pan), OPN_PAN_L|OPN_PAN_R
+	ld	a, 80h
 	; No portamento for first note.
-	ld	(iy+NVM.now_block), 80h
+	ld	(iy+NVM.now_block), a
+	; Default highest volume.
+	dec	a
+	ld	(iy+NVM.volume), a
 	ret
 
 ; ------------------------------------------------------------------------------
@@ -95,7 +100,7 @@ nvm_bgm_reset:
 	ld	de, NVM.len
 	add	iy, de
 	djnz	-
-	ret
+	jp	opn_reset
 
 ; ------------------------------------------------------------------------------
 ;

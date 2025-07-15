@@ -20,10 +20,6 @@ start:
 	ld	bc, TmpEnd-TmpStart
 	call	mem_clear_sub
 	call	nvm_init
-	; TODO: Place this in interface once the mailbox works.
-	call	opn_reset
-;	ld	hl, bgm_test
-;	call	nez_load_bgm_data
 	call	mailbox_init
 
 main:

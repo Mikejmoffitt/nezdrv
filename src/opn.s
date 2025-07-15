@@ -6,8 +6,21 @@ OPN_TCTRL_DEFAULT = 3Fh
 
 ; shuts up the channels
 opn_reset:
+	; hush up the carriers
+	ld	a, OPN_REG_TL
+	ld	d, 7Fh  ; const mute value
+	ld	b, 10h
+.loop:
+	ld	(hl), a
+	inc	hl
+	ld	(hl), d
+	dec	hl
+	call	opn_keyon_delay_sub
+	inc	a  ; next tl
+	djnz	.loop
 	ld	hl, opn_init.init_data_quiet
-	jr	z, opn_init.start
+	jr	opn_init.start
+
 
 opn_init:
 	ld	hl, .init_data
