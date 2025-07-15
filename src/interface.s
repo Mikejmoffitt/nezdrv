@@ -67,7 +67,7 @@ nez_hl_deref_relative_offs_sub:
 ; The list is null-terminated.
 nez_bgm_assign_tracks_sub:
 	; Track list = hl + NEZINFO.track_list_offs
-	ld	hl, (CurrentContext+NVMCONTEXT.buffer_ptr)
+	ld	hl, (BgmContext+NVMCONTEXT.buffer_ptr)
 	ld	de, NEZINFO.track_list_offs
 	add	hl, de  ; hl now points to the track list offset value.
 	call	nez_hl_deref_relative_offs_sub
@@ -98,7 +98,7 @@ nez_bgm_assign_tracks_sub:
 
 nez_bgm_set_timers_sub:
 	; Set the timers.
-	ld	hl, (CurrentContext+NVMCONTEXT.buffer_ptr)
+	ld	hl, (BgmContext+NVMCONTEXT.buffer_ptr)
 	ld	de, NEZINFO.ta
 	add	hl, de
 	ld	de, OPN_ADDR0

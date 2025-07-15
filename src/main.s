@@ -17,7 +17,7 @@ start:
 	call	opn_init
 	; Clear work RAM
 	ld	hl, TmpStart
-	ld	bc, TmpEnd-TmpStart
+	ld	bc, TmpEnd-TmpStart-1
 	call	mem_clear_sub
 	call	nvm_init
 	call	mailbox_init

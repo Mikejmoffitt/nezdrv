@@ -121,14 +121,17 @@ nvm_context_iter_opn_bgm_set:
 	ret
 
 nvm_context_sfx_set:
+	push	hl
 	ld	hl, SfxContext
 	jr	nvm_context_copy
 nvm_context_bgm_set:
+	push	hl
 	ld	hl, BgmContext
 nvm_context_copy:
-	ld	bc, NVMCONTEXT.len
 	ld	de, CurrentContext
+	ld	bc, NVMCONTEXT.len
 	ldir
+	pop	hl
 	ret
 
 
