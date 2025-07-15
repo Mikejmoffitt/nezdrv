@@ -21,36 +21,53 @@ mailbox_handle_cmd:
 	jp	mbcmd_load_sfx         ; NEZ_CMD_LOAD_SFX
 	jp	mbcmd_load_bgm         ; NEZ_CMD_LOAD_BGM
 	jp	mbcmd_play_bgm         ; NEZ_CMD_PLAY_BGM
+	jp	mbcmd_pause_bgm        ; NEZ_CMD_PAUSE_BGM
 	jp	mbcmd_stop_bgm         ; NEZ_CMD_STOP_BGM
 	jp	mbcmd_stop_sfx         ; NEZ_CMD_STOP_SFX
 	jp	mbcmd_set_volume_sfx   ; NEZ_CMD_SET_VOLUME_SFX
 	jp	mbcmd_set_volume_bgm   ; NEZ_CMD_SET_VOLUME_BGM
-
-	; TODO
-	jr	mbcmd_Done
 mbcmd_load_bgm:
 	push	hl
 	call	nvm_bgm_reset
 	pop	hl
 
-	call	mbcmd_dataload_prep_sub
-
 	; Command the loading of the BGM data
+	call	mbcmd_dataload_prep_sub
 	push	hl
+
 	ex	de, hl
 	call	nez_load_bgm_data
 	pop	hl
 
-	; Play flag set?
+	; Move playing state into BgmPlaying.
 	ld	a, (hl)
-	and	a
-	jp	z, mbcmd_done  ; nope - get out
-	; TODO: command play
+.play_commit:
+	ld	(BgmPlaying), a
 	jp	mbcmd_done
 
 mbcmd_load_sfx:
+	; Command the loading of the SFX data
+	call	mbcmd_dataload_prep_sub
+
+	push	hl
+	ex	de, hl
+	call	nez_load_sfx_data
+	pop	hl
+
+	jr	mbcmd_done
+
 mbcmd_play_bgm:         ; NEZ_CMD_PLAY_BGM
+	ld	a, 01h
+	jr	mbcmd_load_bgm.play_commit
+
+mbcmd_pause_bgm:        ; NEZ_CMD_PAUSE_BGM
+	ld	a, 80h
+	jr	mbcmd_load_bgm.play_commit
+
 mbcmd_stop_bgm:         ; NEZ_CMD_STOP_BGM
+	xor	a
+	jr	mbcmd_load_bgm.play_commit
+
 mbcmd_stop_sfx:         ; NEZ_CMD_STOP_SFX
 mbcmd_set_volume_sfx:   ; NEZ_CMD_SET_VOLUME_SFX
 mbcmd_set_volume_bgm:   ; NEZ_CMD_SET_VOLUME_BGM

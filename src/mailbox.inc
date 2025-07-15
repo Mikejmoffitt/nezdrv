@@ -40,10 +40,11 @@ NEZ_CMD_READY          = 0
 NEZ_CMD_LOAD_SFX       = 1
 NEZ_CMD_LOAD_BGM       = 2
 NEZ_CMD_PLAY_BGM       = 3
-NEZ_CMD_STOP_BGM       = 4
-NEZ_CMD_STOP_SFX       = 5
-NEZ_CMD_SET_VOLUME_SFX = 6
-NEZ_CMD_SET_VOLUME_BGM = 7
+NEZ_CMD_PAUSE_BGM      = 4
+NEZ_CMD_STOP_BGM       = 5
+NEZ_CMD_STOP_SFX       = 6
+NEZ_CMD_SET_VOLUME_SFX = 7
+NEZ_CMD_SET_VOLUME_BGM = 8
 
 ; The last three bytes are used for the sound driver to indicate it has fully
 ; initialized itself. After initializing the driver, check that the following

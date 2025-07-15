@@ -26,6 +26,8 @@ SfxTrackListPtr:       ds 2
 
 CurrentBank:           ds 1
 
+BgmPlaying:            ds 1
+
 	align	10h
 
 ; Playback channel state.

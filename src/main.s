@@ -45,8 +45,18 @@ main:
 	ld	a, OPN_TB_ACK
 	ld	(OPN_DATA0), a
 
+	ld	a, (BgmPlaying)
+	and	a
+	jr	z, .stopped
+
 	call	nvm_context_iter_opn_bgm_set
 	call	nvm_poll_opn
 	call	nvm_contest_iter_opn_sfx_set
 	call	nvm_poll_opn
 	jr	main
+
+.stopped:
+	ld	a, (BgmPlaying)
+	jp	m, main ; don't reset state if just paused.
+	call	nvm_bgm_reset
+	jp	main
