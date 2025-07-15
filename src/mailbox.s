@@ -69,8 +69,19 @@ mbcmd_stop_bgm:         ; NEZ_CMD_STOP_BGM
 	jr	mbcmd_load_bgm.play_commit
 
 mbcmd_stop_sfx:         ; NEZ_CMD_STOP_SFX
+	; TODO
+	jr	mbcmd_done
+
 mbcmd_set_volume_sfx:   ; NEZ_CMD_SET_VOLUME_SFX
+	ld	a, (hl)
+	ld	(SfxContext+NVMCONTEXT.global_volume), a
+	jr	mbcmd_done
+
 mbcmd_set_volume_bgm:   ; NEZ_CMD_SET_VOLUME_BGM
+	ld	a, (hl)
+	ld	(BgmContext+NVMCONTEXT.global_volume), a
+	jr	mbcmd_done
+
 mbcmd_done:
 	xor	a  ; NEZ_CMD_READY
 	ld	(MailBoxCommand+NEZMB.cmd), a

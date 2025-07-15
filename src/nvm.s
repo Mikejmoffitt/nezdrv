@@ -22,11 +22,11 @@ nvm_init:
 
 	; BgmBufferPtr starts at UserBuffer so that BGM works even without SFX.
 	ld	hl, UserBuffer
-	ld	(BgmBufferPtr), hl
-	ld	(SfxBufferPtr), hl
+	ld	(BgmContext+NVMCONTEXT.buffer_ptr), hl
+	ld	(SfxContext+NVMCONTEXT.buffer_ptr), hl
 	xor	a
-	ld	(BgmGlobalVolume), a
-	ld	(SfxGlobalVolume), a
+	ld	(BgmContext+NVMCONTEXT.global_volume), a
+	ld	(SfxContext+NVMCONTEXT.global_volume), a
 
 	ret
 
@@ -108,32 +108,27 @@ nvm_bgm_reset:
 ;
 ; ------------------------------------------------------------------------------
 
-nvm_context_iter_opn_bgm_set:
-	ld	iy, NvmOpnBgm
-	ld	b, OPN_BGM_CHANNEL_COUNT
-nvm_context_bgm_set:
-	ld	de, (BgmBufferPtr)
-	ld	(BufferPtr), de
-	ld	de, (BgmInstrumentListPtr)
-	ld	(InstrumentListPtr), de
-	ld	de, (BgmPcmListPtr)
-	ld	(PcmListPtr), de
-	ld	a, (BgmGlobalVolume)
-	ld	(GlobalVolume), a
-	ret
-
 nvm_contest_iter_opn_sfx_set:
+	call	nvm_context_sfx_set
 	ld	b, OPN_SFX_CHANNEL_COUNT
 	ld	iy, NvmOpnSfx
+	ret
+
+nvm_context_iter_opn_bgm_set:
+	call	nvm_context_bgm_set
+	ld	b, OPN_BGM_CHANNEL_COUNT
+	ld	iy, NvmOpnBgm
+	ret
+
 nvm_context_sfx_set:
-	ld	de, (SfxBufferPtr)
-	ld	(BufferPtr), de
-	ld	de, (SfxInstrumentListPtr)
-	ld	(InstrumentListPtr), de
-	ld	de, (SfxPcmListPtr)
-	ld	(PcmListPtr), de
-	ld	a, (SfxGlobalVolume)
-	ld	(GlobalVolume), a
+	ld	hl, SfxContext
+	jr	nvm_context_copy
+nvm_context_bgm_set:
+	ld	hl, BgmContext
+nvm_context_copy:
+	ld	bc, NVMCONTEXT.len
+	ld	de, CurrentContext
+	ldir
 	ret
 
 
@@ -352,7 +347,7 @@ nvm_op_inst:     ;
 	ld	e, (hl)
 	inc	hl
 	push	hl
-	ld	hl, (InstrumentListPtr)
+	ld	hl, (CurrentContext+NVMCONTEXT.instrument_list_ptr)
 	add	hl, de  ; += instrument id offset
 	; de take the patch address, also stored in the ch state
 	ld	e, (hl)
@@ -493,7 +488,7 @@ nvm_op_note:
 	;
 
 tlmod macro opno
-	ld	a, (GlobalVolume)
+	ld	a, (CurrentContext+NVMCONTEXT.global_volume)
 	add	a, (iy+NVM.tl+opno)
 	add	a, (iy+NVM.volume)
 	cp	80h

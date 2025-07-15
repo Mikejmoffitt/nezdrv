@@ -30,45 +30,52 @@ NVM_BLOCK_PORTAMENTO_SKIP_FLAG = 80h
 ;
 NVM struct
 ; Intrinsic channel properties
-status:      ds 1
-channel_id:  ds 1
+status:         ds 1
+channel_id:     ds 1
 
 ; Control flow
-pc:          ds 2
-loop_ptr:    ds 2
-loop_cnt:    ds 1
-rest_val:    ds 1
-rest_cnt:    ds 1
-stack_ptr:   ds 2
-stack:       ds NVM_STACK_DEPTH*2
+pc:             ds 2
+loop_ptr:       ds 2
+loop_cnt:       ds 1
+rest_val:       ds 1
+rest_cnt:       ds 1
+stack_ptr:      ds 2
+stack:          ds NVM_STACK_DEPTH*2
 
 ; Note settings
-volume:      ds 1  ; really attenuation, summed with tl on key-on.
-octave:      ds 1  ; stored as multiples of 8 to match block register.
-portamento:  ds 1  ; rate of change for target_freq. If 0, it is instant.
+volume:         ds 1  ; really attenuation, summed with tl on key-on.
+octave:         ds 1  ; stored as multiples of 8 to match block register.
+portamento:     ds 1  ; rate of change for target_freq. If 0, it is instant.
 
 ; Portamento state
-now_freq:    ds 2
-now_block:   ds 1  ; if negative, immediately adopts the target.
-tgt_freq:    ds 2
-tgt_block:   ds 1
+now_freq:       ds 2
+now_block:      ds 1  ; if negative, immediately adopts the target.
+tgt_freq:       ds 2
+tgt_block:      ds 1
 ; Key down stuff
-key_pending: ds 1  ; if true, awaiting a key on event.
+key_pending:    ds 1  ; if true, awaiting a key on event.
 
 ; Vibrato
-vib_tbl:     ds 2  ; set when vibrato command is set.
-vib_mag:     ds 1  ; vibrato magnitude.
-vib_speed:   ds 1
-vib_cnt:     ds 1  ;
-vib_out:     ds 1
+vib_tbl:        ds 2  ; set when vibrato command is set.
+vib_mag:        ds 1  ; vibrato magnitude.
+vib_speed:      ds 1
+vib_cnt:        ds 1  ;
+vib_out:        ds 1
 
 ; OPN-specific state
-patch_ptr:   ds 2
-tl_conoffs:  ds 1  ; pre-multiplied jr table offset for tl setting (patch con * 2)
-tl:          ds 4  ; TL values from when instrument was set.
-pan:         ds 1  ; pan/ams/pms register.
+patch_ptr:      ds 2
+tl_conoffs:     ds 1  ; pre-multiplied jr table offset for tl setting (patch con * 2)
+tl:             ds 4  ; TL values from when instrument was set.
+pan:            ds 1  ; pan/ams/pms register.
 
 NVM endstruct
+
+NVMCONTEXT struct
+global_volume:       ds 1
+buffer_ptr:          ds 2
+instrument_list_ptr: ds 2
+pcm_list_ptr:        ds 2
+NVMCONTEXT endstruct
 
 
 ; Header defining a header for a blob of track data (BGM or SFX).

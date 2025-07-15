@@ -2,7 +2,7 @@
 ;
 ; Track Load
 ;
-; You should call nez_load_sfx_data first as it sets BgmBufferPtr.
+; You should call nez_load_sfx_data first as it sets the BGM buffer pointer.
 ;
 ; ------------------------------------------------------------------------------
 
@@ -12,13 +12,13 @@ nez_load_sfx_data:
 	call	nvm_context_sfx_set
 	call	nez_load_buffer_sub
 	; Timers are not set.
-	ld	(BgmBufferPtr), de  ; This sets up the BGM buffer address.
+	ld	(CurrentContext+NVMCONTEXT.buffer_ptr), de  ; This sets up the BGM buffer address.
 	call	nez_load_standard_rebase_sub
 
-	ld	de, (InstrumentListPtr)
-	ld	(SfxInstrumentListPtr), de
-	ld	de, (PcmListPtr)
-	ld	(SfxPcmListPtr), de
+	ld	de, (CurrentContext+NVMCONTEXT.instrument_list_ptr)
+	ld	(SfxContext+NVMCONTEXT.instrument_list_ptr), de
+	ld	de, (CurrentContext+NVMCONTEXT.pcm_list_ptr)
+	ld	(SfxContext+NVMCONTEXT.pcm_list_ptr), de
 
 	; Sfx track pointer is needed to handle cue commands.
 	ld	de, NEZINFO.track_list_offs
@@ -35,15 +35,15 @@ nez_load_bgm_data:
 	call	nez_load_standard_rebase_sub
 	call	nez_bgm_assign_tracks_sub
 	call	nez_bgm_set_timers_sub
-	ld	de, (InstrumentListPtr)
-	ld	(BgmInstrumentListPtr), de
-	ld	de, (PcmListPtr)
-	ld	(BgmPcmListPtr), de
+	ld	de, (CurrentContext+NVMCONTEXT.instrument_list_ptr)
+	ld	(BgmContext+NVMCONTEXT.instrument_list_ptr), de
+	ld	de, (CurrentContext+NVMCONTEXT.pcm_list_ptr)
+	ld	(BgmContext+NVMCONTEXT.pcm_list_ptr), de
 	ret
 
 ; hl = buffer
 nez_load_buffer_sub:
-	ld	de, (BufferPtr)
+	ld	de, (CurrentContext+NVMCONTEXT.buffer_ptr)
 	; The first two bytes contain (byte count - 2).
 	ld	c, (hl)
 	inc	hl
@@ -60,14 +60,14 @@ nez_hl_deref_relative_offs_sub:
 	inc	hl
 	ld	a, (hl)
 	ld	d, a
-	ld	hl, (BufferPtr)
+	ld	hl, (CurrentContext+NVMCONTEXT.buffer_ptr)
 	add	hl, de
 	ret
 
 ; The list is null-terminated.
 nez_bgm_assign_tracks_sub:
 	; Track list = hl + NEZINFO.track_list_offs
-	ld	hl, (BufferPtr)
+	ld	hl, (CurrentContext+NVMCONTEXT.buffer_ptr)
 	ld	de, NEZINFO.track_list_offs
 	add	hl, de  ; hl now points to the track list offset value.
 	call	nez_hl_deref_relative_offs_sub
@@ -98,7 +98,7 @@ nez_bgm_assign_tracks_sub:
 
 nez_bgm_set_timers_sub:
 	; Set the timers.
-	ld	hl, (BgmBufferPtr)
+	ld	hl, (CurrentContext+NVMCONTEXT.buffer_ptr)
 	ld	de, NEZINFO.ta
 	add	hl, de
 	ld	de, OPN_ADDR0
@@ -132,28 +132,28 @@ nez_rebase_tracks:
 nez_rebase_instruments:
 	ld	de, NEZINFO.instrument_list_offs
 	call	nez_get_list_head_sub
-	ld	(InstrumentListPtr), hl
+	ld	(CurrentContext+NVMCONTEXT.instrument_list_ptr), hl
 	jr	nez_rebase_relative_list_sub
 
 nez_rebase_pcm:
 	ld	de, NEZINFO.pcm_list_offs
 	call	nez_get_list_head_sub
-	ld	(PcmListPtr), hl
+	ld	(CurrentContext+NVMCONTEXT.pcm_list_ptr), hl
 	jr	nez_rebase_relative_list_sub
 
 ; de = NEZINFO offset
 ; returns head in hl
 nez_get_list_head_sub:
-	ld	hl, (BufferPtr)
+	ld	hl, (CurrentContext+NVMCONTEXT.buffer_ptr)
 	add	hl, de  ; hl now points to the instrument list
 	jp	nez_hl_deref_relative_offs_sub
 
 
-; rebases a relative offset list against BufferPtr (nullptr-terminated).
+; rebases a relative offset list against the current buffer (nullptr-terminated).
 ; hl = list head
 nez_rebase_relative_list_sub:
 	; Rebase the list.
-	ld	de, (BufferPtr)
+	ld	de, (CurrentContext+NVMCONTEXT.buffer_ptr)
 	; get hl into bc; we need it but will be doing math on hl.
 	push	hl
 	pop	bc

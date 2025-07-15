@@ -2,30 +2,16 @@
 ; Work RAM begin
 ;
 
-NEZ_STACK_DEPTH = 16
+NEZ_STACK_DEPTH = 12
 
 TmpStart:
 
-InstrumentListPtr:     ds 2  ; copied from either the sfx or bgm var
-SfxInstrumentListPtr:  ds 2
-BgmInstrumentListPtr:  ds 2
-
-PcmListPtr:            ds 2
-SfxPcmListPtr:         ds 2
-BgmPcmListPtr:         ds 2
-
-GlobalVolume:          ds 1
-BgmGlobalVolume:       ds 1
-SfxGlobalVolume:       ds 1
-
-BufferPtr:             ds 2  ; copied from either the sfx or bgm var
-SfxBufferPtr:          ds 2  ; UserBuffer
-BgmBufferPtr:          ds 2  ; UserBuffer + size of SfxData
-
+BgmContext:            ds NVMCONTEXT.len
+SfxContext:            ds NVMCONTEXT.len
+CurrentContext:        ds NVMCONTEXT.len
+; Sound effect specific
 SfxTrackListPtr:       ds 2
-
-CurrentBank:           ds 1
-
+; BGM Specific
 BgmPlaying:            ds 1
 
 	align	10h
@@ -44,6 +30,7 @@ TmpEnd:
 StackStart:            ds 2*NEZ_STACK_DEPTH
 StackEnd:
 
+; This is where user data (tracks, instruments, etc) lives.
 UserBuffer:
 
 
