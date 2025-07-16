@@ -2,7 +2,10 @@
 ; Work RAM begin
 ;
 
-NEZ_STACK_DEPTH = 12
+NEZ_STACK_DEPTH = 16
+
+StackStart:            ds 2*NEZ_STACK_DEPTH
+StackEnd:
 
 TmpStart:
 
@@ -21,24 +24,16 @@ PcmAddr:               ds 2  ; current sample address.
 	align	10h
 
 ; Playback channel state.
-NvmStart:
-NvmBgmStart:
-NvmOpnBgm:             ds NVM.len * OPN_BGM_CHANNEL_COUNT
-NvmPsgBgm:             ds NVM.len * PSG_BGM_CHANNEL_COUNT
-NvmSfxStart:
-NvmOpnSfx:             ds NVM.len * OPN_SFX_CHANNEL_COUNT
-NvmPsgSfx:             ds NVM.len * PSG_SFX_CHANNEL_COUNT
+NvmOpnBgm:             ds NVMOPN.len * OPN_BGM_CHANNEL_COUNT
+NvmPsgBgm:             ds NVMPSG.len * PSG_BGM_CHANNEL_COUNT
+NvmOpnSfx:             ds NVMOPN.len * OPN_SFX_CHANNEL_COUNT
+NvmPsgSfx:             ds NVMPSG.len * PSG_SFX_CHANNEL_COUNT
 
 TmpEnd:
-
-StackStart:            ds 2*NEZ_STACK_DEPTH
-StackEnd:
 
 ; This is where user data (tracks, instruments, etc) lives.
 UserBufferLoadPtr:     ds 2
 UserBuffer:
-
-
 
 
 	org Z80_RAM_BYTES-0020h

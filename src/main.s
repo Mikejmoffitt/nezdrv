@@ -50,7 +50,7 @@ main:
 	call	nvm_context_iter_opn_bgm_set
 	call	nvm_poll_opn
 	pcm_service
-	call	nvm_contest_iter_opn_sfx_set
+	call	nvm_context_iter_opn_sfx_set
 	call	nvm_poll_opn
 	jr	main
 

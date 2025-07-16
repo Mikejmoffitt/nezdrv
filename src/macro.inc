@@ -74,8 +74,7 @@ jptbl_dispatch	macro
 ; ld	(hl), h/l     ; Bit 23 (0) |  7 cycles, one byte
 ;
 ; This occurs in a total of 101 cycles.
-bank_set_inline	macro
-	exx
+bank_set_inline_unsafe macro
 	ld	hl, BANK_SEL  ; 10 cycles
 
 	ld	(hl), a       ; 7 cycles; A15 bit
@@ -84,5 +83,10 @@ bank_set_inline	macro
 	ld	(hl), a       ; 7 cycles; A16-A22 bits
 	endm
 	ld	(hl), l       ; 7 cycles; A23 bit, a constant 0
+	endm
+
+bank_set_inline	macro
+	exx
+	bank_set_inline_unsafe
 	exx
 	endm

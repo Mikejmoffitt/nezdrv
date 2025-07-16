@@ -4,22 +4,28 @@
 ;
 ; ------------------------------------------------------------------------------
 nvm_init:
-	ld	hl, .channel_id_tbl
-	ld	b, TOTAL_CHANNEL_COUNT
-	ld	iy, NvmStart
--:
-	ld	a, (hl)
-	push	hl
-	push	bc
-	call	.init_sub
-	pop	bc
-	pop	hl
-	inc	hl
+	; The OPN channels
+	ld	de, NVMOPN.len
 
-	ld	de, NVM.len
-	add	iy, de
-	djnz	-
+	ld	hl, .opn_channel_id_tbl
+	ld	iy, NvmOpnBgm
+	ld	b, OPN_BGM_CHANNEL_COUNT
+	call	.grp_init_sub
 
+	ld	iy, NvmOpnSfx
+	ld	b, OPN_SFX_CHANNEL_COUNT
+	call	.grp_init_sub
+
+	; The PSG channels
+	ld	de, NVMPSG.len
+	ld	hl, .psg_channel_id_tbl
+	ld	b, PSG_BGM_CHANNEL_COUNT
+	ld	iy, NvmPsgBgm
+	call	.grp_init_sub
+
+	ld	b, PSG_SFX_CHANNEL_COUNT
+	ld	iy, NvmPsgSfx
+	call	.grp_init_sub
 	; All buffers start at UserBuffer. It is expected that SFX and PCM are
 	; set once, while BGM can be exchanged. It's also okay to omit SFX and
 	; PCM loads.
@@ -31,40 +37,35 @@ nvm_init:
 	xor	a
 	ld	(BgmContext+NVMCONTEXT.global_volume), a
 	ld	(SfxContext+NVMCONTEXT.global_volume), a
-
 	ret
 
-.channel_id_tbl:
-	db	0, 1, 2  ; FM0-FM2 bgm
-	db	4, 5, 6  ; FM3-FM6 bgm
-	db	00h, 20h, 40h, 60h  ; PSG 0-3 bgm
-	db	0, 1, 2 ; FM0-FM2 sound effects
-	db	00h, 20h, 40h, 60h  ; PSG 0-3 sound effects
+.opn_channel_id_tbl:
+	db	0, 1, 2, 4, 5, 6
+	db	0, 1, 2
+.psg_channel_id_tbl:
+	db	00h, 20h, 40h
+	db	00h, 20h, 40h
 
-; iy = channel state struct
-; a = channel id / offset
-.init_sub:
-	push	af
-	; clear channel struct
-	ld	a, iyh
-	ld	h, a
-	ld	a, iyl
-	ld	l, a
-	; DE := hl + 1
-	ld	e, l
-	ld	d, h
-	inc	de
-	ld	(hl), 00h  ; First byte is initialized with clear value 00h
-	ld	bc, NVM.len
-	ldir
-	; mark channel offset
-	pop	af
+
+; hl = channel id assignment tbl
+; iy = start of block
+; de = struct offset per
+; b = count
+.grp_init_sub:
+-:
+	ld	a, (hl)
+	inc	hl
 	ld	(iy+NVM.channel_id), a
-	; fall-through to nvm_reset_sub
+
+	call	nvm_reset_sub
+
+	add	iy, de
+	djnz	-
+	ret
 
 ; iy = NVM head
-; clobbers hl
 nvm_reset_sub:
+	exx
 	; Zero some defaults to inactive
 	xor	a
 	ld	(iy+NVM.status), a      ; inactive
@@ -80,17 +81,10 @@ nvm_reset_sub:
 	ld	(iy+NVM.stack_ptr+1), h
 	ld	(iy+NVM.stack_ptr), l
 	; channel default
-	ld	(iy+NVM.rest_val), nvm_REST_DEFAULT
-	; default to both outputs, no modulation
-	ld	(iy+NVM.pan), OPN_PAN_L|OPN_PAN_R
-	ld	a, 80h
-	; No portamento for first note.
-	ld	(iy+NVM.now_block), a
+	ld	(iy+NVM.rest_val), NVM_REST_DEFAULT
 	; Default highest volume.
-	dec	a
-	ld	(iy+NVM.volume), a
-	; Turn off PCM
-	pcm_poll_disable
+	ld	(iy+NVM.volume), 7Fh
+	exx
 	ret
 
 ; ------------------------------------------------------------------------------
@@ -99,11 +93,27 @@ nvm_reset_sub:
 ;
 ; ------------------------------------------------------------------------------
 nvm_bgm_reset:
-	ld	b, TOTAL_BGM_CHANNEL_COUNT
-	ld	iy, NVMBgmStart
+	pcm_poll_disable
+	ld	b, OPN_BGM_CHANNEL_COUNT
+	ld	iy, NvmOpnBgm
+	ld	de, NVMOPN.len
 -:
 	call	nvm_reset_sub
-	ld	de, NVM.len
+	; default to both outputs, no modulation
+	ld	(iy+NVMOPN.pan), OPN_PAN_L|OPN_PAN_R
+	; No portamento for first note.
+	ld	(iy+NVMOPN.now_block), 80h
+	add	iy, de
+	djnz	-
+
+	; iy is at NvmPsgBgm now.
+	ld	b, PSG_BGM_CHANNEL_COUNT
+	ld	iy, NvmPsgBgm
+	ld	de, NVMPSG.len
+	; fall-through to .reset_lp
+-:
+	call	nvm_reset_sub
+	; TODO: PSG shit
 	add	iy, de
 	djnz	-
 	jp	opn_reset
@@ -114,7 +124,7 @@ nvm_bgm_reset:
 ;
 ; ------------------------------------------------------------------------------
 
-nvm_contest_iter_opn_sfx_set:
+nvm_context_iter_opn_sfx_set:
 	call	nvm_context_sfx_set
 	ld	b, OPN_SFX_CHANNEL_COUNT
 	ld	iy, NvmOpnSfx
@@ -142,21 +152,44 @@ nvm_context_copy:
 
 
 ; b = count
-; iy = NVM head
+; iy = NVMOPN head
 nvm_poll_opn:
 .loop:
 	push	bc
 	; Skip inactive channels
 	ld	a, (iy+NVM.status)
-	cp	nvm_STATUS_INACTIVE
+	and	a  ; NVM_STATUS_INACTIVE?
 	jr	z, .next_chan
-	call	nvm_exec_opn
+	call	nvm_exec
 	pcm_service
-	call	nvm_portamento
+	call	nvm_opn_portamento
 	pcm_service
-	call	nvm_update_output
+	call	nvmopn_update_output
 .next_chan:
-	ld	de, NVM.len
+	ld	de, NVMOPN.len
+	add	iy, de
+	pcm_service
+	pop	bc
+	djnz	.loop
+	ret
+
+
+; b = count
+; iy = NVMPSG head
+nvm_poll_psg:
+.loop:
+	push	bc
+	; Skip inactive channels
+	ld	a, (iy+NVM.status)
+	and	a  ; NVM_STATUS_INACTIVE?
+	jr	z, .next_chan
+	call	nvm_exec
+	pcm_service
+;	call	nvm_opn_portamento
+;	pcm_service
+;	call	nvmopn_update_output
+.next_chan:
+	ld	de, NVMPSG.len
 	add	iy, de
 	pcm_service
 	pop	bc
@@ -168,24 +201,32 @@ nvm_poll_opn:
 ; Execution of NVM Instructions
 ;
 ; ------------------------------------------------------------------------------
-nvm_exec_opn:
-.exec:
+
+nvm_op_finished_yield:
+	ld	(iy+NVM.pc+1), h
+	ld	(iy+NVM.pc), l
+nvm_exec:
+.top:
 	; If rest counter > 0, decrement and proceed
 	ld	a, (iy+NVM.rest_cnt)
 	and	a
-	jr	z, +
+	jr	z, .instructions_from_pc
 	dec	a
 	ld	(iy+NVM.rest_cnt), a
 	ret
-+:
+
+.instructions_from_pc:
 	; Time for instructions
 	ld	h, (iy+NVM.pc+1)
 	ld	l, (iy+NVM.pc)
+.instructions_from_hl:
 	ld	a, (hl)
 	inc	hl
+
 	; If A is >= 80h, it's a note, and is handled differently.
 	and	a
 	jp	m, nvm_op_note
+.dispatch_opn:
 	; Else, it's a control instruction.
 	jptbl_dispatch
 
@@ -214,16 +255,6 @@ nvm_exec_opn:
 	jp	nvm_op_pcmplay  ; 22
 	jp	nvm_op_pcmstop  ; 23
 
-; ------------------------------------------------------------------------------
-
-; This routine is modified based on whether it is OPN or PSG execution.
-nvm_op_finished:
-	ld	(iy+NVM.pc+1), h
-	ld	(iy+NVM.pc), l
-nvm_op_reenter:
-	jr	nvm_exec_opn
-
-
 
 ; ------------------------------------------------------------------------------
 
@@ -231,7 +262,7 @@ nvm_op_reenter:
 nvm_op_jump:     ;  0
 	; two bytes - relative pointer to jump to
 	call	.set_pc_relative_offs
-	jr	nvm_op_reenter
+	jr	nvm_exec.instructions_from_hl
 
 ; hl = start of relative label offset argument
 ; clobbers bc, messes with hl
@@ -265,7 +296,7 @@ nvm_op_call:     ;  1
 	; store moved stack pointer
 	ld	(iy+NVM.stack_ptr+1), d
 	ld	(iy+NVM.stack_ptr), e
-	jr	nvm_op_reenter
+	jp	nvm_exec.instructions_from_pc
 
 nvm_op_ret:      ;  2
 	; decrement stack pointer, and place contents in pc.
@@ -280,7 +311,7 @@ nvm_op_ret:      ;  2
 	inc	hl
 	ld	a, (hl)
 	ld	(iy+NVM.pc), a
-	jr	nvm_op_reenter
+	jp	nvm_exec.instructions_from_pc
 
 nvm_op_loopset:  ;  3
 	; Get loop count
@@ -290,21 +321,19 @@ nvm_op_loopset:  ;  3
 	; Store address in the loop pointer field
 	ld	(iy+NVM.loop_ptr+1), h
 	ld	(iy+NVM.loop_ptr), l
-	jp	nvm_op_finished
+	jp	nvm_exec.instructions_from_hl
 
 nvm_op_loopend:  ;  4
 	ld	a, (iy+NVM.loop_cnt)
-	sub	a, 1
+	dec	a
 	ld	(iy+NVM.loop_cnt), a
-	jr	z, +
+	jp	z, nvm_exec.instructions_from_hl
 	; jump back to loop
 	ld	a, (iy+NVM.loop_ptr+1)
 	ld	(iy+NVM.pc+1), a
 	ld	a, (iy+NVM.loop_ptr)
 	ld	(iy+NVM.pc), a
-	jr	nvm_op_reenter
-+:
-	jp	nvm_op_finished
+	jp	nvm_exec.instructions_from_pc
 
 nvm_op_tempo:    ;  5
 	ld	ix, OPN_BASE
@@ -312,7 +341,7 @@ nvm_op_tempo:    ;  5
 	ld	a, (hl)
 	inc	hl
 	ld	(ix+1), a
-	jp	nvm_op_finished
+	jp	nvm_exec.instructions_from_hl
 
 
 ; Sets the default rest value associated with notes.
@@ -320,7 +349,7 @@ nvm_op_length:   ;  6
 	ld	a, (hl)
 	ld	(iy+NVM.rest_val), a
 	inc	hl
-	jp	nvm_op_finished
+	jp	nvm_exec.instructions_from_hl
 
 ; Consumes the following byte as a rest count value.
 nvm_op_rest:     ;  7
@@ -332,7 +361,7 @@ nvm_op_rest:     ;  7
 	ld	a, (iy+NVM.rest_val)
 +:
 	ld	(iy+NVM.rest_cnt), a
-	jp	nvm_op_finished
+	jp	nvm_op_finished_yield
 
 ; Sets the octave register value.
 nvm_op_oct:      ;  8
@@ -341,19 +370,19 @@ nvm_op_oct:      ;  8
 	; fall-through
 nvm_op_oct_commit_a:
 	ld	(iy+NVM.octave), a
-	jp	nvm_op_finished
+	jp	nvm_exec.instructions_from_hl
 
 nvm_op_oct_up:   ;  9
 	ld	a, (iy+NVM.octave)
 	cp	7*8  ; octave already == 7?
-	jp	nc, nvm_op_finished
+	jp	nc, nvm_exec.instructions_from_hl
 	add	a, 8
 	jr	nvm_op_oct_commit_a
 
 nvm_op_oct_down: ; 10
 	ld	a, (iy+NVM.octave)
 	and	a  ; octave already at 0?
-	jp	z, nvm_op_finished
+	jp	z, nvm_exec.instructions_from_hl
 	sub	a, 8
 	jr	nvm_op_oct_commit_a
 
@@ -367,10 +396,10 @@ nvm_op_inst:     ;
 	add	hl, de  ; += instrument id offset
 	; de take the patch address, also stored in the ch state
 	ld	e, (hl)
-	ld	(iy+NVM.patch_ptr+0), e
+	ld	(iy+NVMOPN.patch_ptr+0), e
 	inc	hl
 	ld	d, (hl)
-	ld	(iy+NVM.patch_ptr+1), d
+	ld	(iy+NVMOPN.patch_ptr+1), d
 	; pull con data.
 	IF	OPNPATCH.con_fb == 0  ; this is how I avoid self-owning later
 	ld	a, (de)  ; OPNPATCh begins with con_fb
@@ -381,44 +410,44 @@ nvm_op_inst:     ;
 	ENDIF  ; OPNPATCH.con_fb == 0
 	and	a, 07h
 	add	a, a
-	ld	(iy+NVM.tl_conoffs), a
+	ld	(iy+NVMOPN.tl_conoffs), a
 	; pull TL data.
 	ld	hl, OPNPATCH.tl
 	add	hl, de  ; hl := source TL data
 	ld	a, (hl)
-	ld	(iy+NVM.tl+0), a
+	ld	(iy+NVMOPN.tl+0), a
 	inc	hl
 	ld	a, (hl)
-	ld	(iy+NVM.tl+1), a
+	ld	(iy+NVMOPN.tl+1), a
 	inc	hl
 	ld	a, (hl)
-	ld	(iy+NVM.tl+2), a
+	ld	(iy+NVMOPN.tl+2), a
 	inc	hl
 	ld	a, (hl)
-	ld	(iy+NVM.tl+3), a
+	ld	(iy+NVMOPN.tl+3), a
 	; write the patch to the OPN
 	ld	de, 10000h-OPNPATCH.tl-3  ; why is there no 16-bit sub???
 	add	hl, de  ; wind hl back to the patch start
 	ld	a, (iy+NVM.channel_id)
 	call	opn_set_patch
 	pop	hl
-	jp	nvm_op_finished
+	jp	nvm_exec.instructions_from_hl
 
 nvm_op_vol:      ; 12
 	ld	a, (hl)
 	ld	(iy+NVM.volume), a
 	inc	hl
-	jp	nvm_op_finished
+	jp	nvm_exec.instructions_from_hl
 
 nvm_op_pan:      ; 13
-	ld	a, (iy+NVM.pan)
+	ld	a, (iy+NVMOPN.pan)
 	and	a, 3Fh  ; remove pan bits
 	; fall-through to commit
 nvm_op_pan_commit_a:
 	or	a, (hl)
 	inc	hl
 	ld	b, a
-	ld	(iy+NVM.pan), a
+	ld	(iy+NVMOPN.pan), a
 	ld	a, (iy+NVM.channel_id)
 	call	opn_set_base_de_sub
 	add	a, OPN_REG_MOD
@@ -426,15 +455,15 @@ nvm_op_pan_commit_a:
 	inc	de
 	ld	a, b
 	ld	(de), a  ; final pan data from before
-	jp	nvm_op_finished
+	jp	nvm_exec.instructions_from_hl
 
 nvm_op_pms:      ; 14
-	ld	a, (iy+NVM.pan)
+	ld	a, (iy+NVMOPN.pan)
 	and	a, 0F8h  ; remove pms bits
 	jr	nvm_op_pan_commit_a
 
 nvm_op_ams:      ; 15
-	ld	a, (iy+NVM.pan)
+	ld	a, (iy+NVMOPN.pan)
 	and	a, 0CFh  ; remove ams bits
 	jr	nvm_op_pan_commit_a
 
@@ -447,10 +476,10 @@ nvm_op_opn_reg:  ; 16
 	ld	a, (hl)
 	ld	(de), a
 	inc	hl
-	jp	nvm_op_finished
+	jp	nvm_exec.instructions_from_hl
 
 nvm_op_stop:     ; 18
-	ld	(iy+NVM.status), nvm_STATUS_INACTIVE
+	ld	(iy+NVM.status), NVM_STATUS_INACTIVE
 	ret
 
 nvm_op_note_off: ; 18
@@ -458,14 +487,14 @@ nvm_op_note_off: ; 18
 	ld	(OPN_ADDR0), a  ; addr
 	ld	a, (iy+NVM.channel_id)
 	ld	(OPN_DATA0), a  ; data
-	ld	(iy+NVM.now_block), 80h  ; Mark no portamento
-	jp	nvm_op_finished
+	ld	(iy+NVMOPN.now_block), 80h  ; Mark no portamento
+	jp	nvm_exec.instructions_from_hl
 
 nvm_op_slide:    ; 19
 	ld	a, (hl)
 	inc	hl
 	ld	(iy+NVM.portamento), a
-	jp	nvm_op_finished
+	jp	nvm_exec.instructions_from_hl
 
 nvm_op_pcmrate:  ; 20
 	ld	a, OPN_REG_TA_HI
@@ -479,8 +508,7 @@ nvm_op_pcmrate:  ; 20
 	ld	a, (hl)
 	inc	hl
 	ld	(OPN_DATA0), a
-
-	jp	nvm_op_finished
+	jp	nvm_exec.instructions_from_hl
 
 nvm_op_pcmmode:  ; 21
 	ld	a, OPN_REG_DACSEL
@@ -488,7 +516,7 @@ nvm_op_pcmmode:  ; 21
 	ld	a, (hl)
 	ld	(OPN_DATA0), a  ; addr
 	inc	hl
-	jp	nvm_op_finished
+	jp	nvm_exec.instructions_from_hl
 
 nvm_op_pcmplay:  ; 22
 	ld	d, 00h
@@ -508,11 +536,11 @@ nvm_op_pcmplay:  ; 22
 	; Enable PCM
 	pcm_poll_enable
 	pop	hl
-	jp	nvm_op_finished
+	jp	nvm_exec.instructions_from_hl
 
 nvm_op_pcmstop:  ; 23
 	pcm_poll_disable
-	jp	nvm_op_finished
+	jp	nvm_exec.instructions_from_hl
 
 ; ------------------------------------------------------------------------------
 ;
@@ -520,33 +548,11 @@ nvm_op_pcmstop:  ; 23
 ;
 ; ------------------------------------------------------------------------------
 
-nvm_op_note:
-	ld	b, a  ; back up the note data in b
-
-	;
-	; Prepare OPN offset
-	;
-	ld	a, (iy+NVM.channel_id)
-	opn_set_base_de
-	ld	c, a
-
-	;
-	; Mark pending key press (if applicable)
-	;
-	ld	a, b
-	and	a, nvm_NOTE_NO_KEY_ON_FLAG
-	jr	nz, +
-	ld	a, 01h
-	ld	(iy+NVM.key_pending), a
-+:
-
-	;
-	; Volume modulation
-	;
+nvm_opn_tlmod_sub:
 
 tlmod macro opno
 	ld	a, (CurrentContext+NVMCONTEXT.global_volume)
-	add	a, (iy+NVM.tl+opno)
+	add	a, (iy+NVMOPN.tl+opno)
 	add	a, (iy+NVM.volume)
 	cp	80h
 	jr	c, +
@@ -563,7 +569,7 @@ tlmod macro opno
 	endm
 
 	; Modify tl. Must leave B alone for use afterwards.
-	ld	a, (iy+NVM.tl_conoffs)
+	ld	a, (iy+NVMOPN.tl_conoffs)
 	jptbl_dispatch
 	jr	.note_volmod_op4
 	jr	.note_volmod_op4
@@ -585,52 +591,85 @@ tlmod macro opno
 .note_volmod_op4:
 	tlmod	3
 
+	ret
+
+nvm_op_note:
+	ld	b, a  ; back up the note data in b
+
+	;
+	; Prepare OPN offset
+	;
+	ld	a, (iy+NVM.channel_id)
+	opn_set_base_de
+	ld	c, a
+
+	;
+	; Mark pending key press (if applicable)
+	;
+	ld	a, b
+	and	a, nvm_NOTE_NO_KEY_ON_FLAG
+	jr	nz, +
+	ld	a, 01h
+	ld	(iy+NVMOPN.key_pending), a
++:
+
+	;
+	; Volume modulation
+	;
+
+	call	nvm_opn_tlmod_sub
+
 	;
 	; Set target octave and frequency.
 	;
 
 	; Adopt current octave setting (really, it's the block reg value).
 	ld	a, (iy+NVM.octave)
-	ld	(iy+NVM.tgt_block), a
-	; Look up note
-	push	hl      ; we'll need this later for rest processing.
-	ld	hl, .freq_tbl
+	ld	(iy+NVMOPN.tgt_block), a
+
+	; Note lookup
 	ld	a, b    ; restore note
+	exx  ; avoid pushing hl and bc
+
+
+;	push	hl      ; we'll need this later for rest processing.
+	ld	hl, .freq_tbl
 	and	a, 1Fh  ; index into freq table
 	ld	e, a    ; offset freq tbl index with de
 	ld	d, 00h
 	add	hl, de
 	ld	a, (hl)
-	ld	(iy+NVM.tgt_freq), a
+	ld	(iy+NVMOPN.tgt_freq), a
 	inc	hl
 	ld	a, (hl)
-	ld	(iy+NVM.tgt_freq+1), a
+	ld	(iy+NVMOPN.tgt_freq+1), a
 
 	;
 	; If note was off before, skip portamento.
 	;
-	ld	a, (iy+NVM.now_block)
+	ld	a, (iy+NVMOPN.now_block)
 	and	a
 	jp	p, +
-	ld	a, (iy+NVM.tgt_block)
-	ld	(iy+NVM.now_block), a
-	ld	a, (iy+NVM.tgt_freq)
-	ld	(iy+NVM.now_freq), a
-	ld	a, (iy+NVM.tgt_freq+1)
-	ld	(iy+NVM.now_freq+1), a
+	ld	a, (iy+NVMOPN.tgt_block)
+	ld	(iy+NVMOPN.now_block), a
+	ld	a, (iy+NVMOPN.tgt_freq)
+	ld	(iy+NVMOPN.now_freq), a
+	ld	a, (iy+NVMOPN.tgt_freq+1)
+	ld	(iy+NVMOPN.now_freq+1), a
 +:
 
 	;
 	; Optional rest duration byte
 	;
-	pop	hl
+;	pop	hl
+	exx
 	ld	a, b
 	and	a, nvm_NOTE_REST_FLAG
 	jp	nz, nvm_op_rest
 	; Else just adopt the default rest value.
 	ld	a, (iy+NVM.rest_val)
 	ld	(iy+NVM.rest_cnt), a
-	jp	nvm_op_finished
+	jp	nvm_op_finished_yield
 
 .freq_tbl:
 	dw	OPN_NOTE_C
@@ -652,62 +691,64 @@ tlmod macro opno
 ;
 ; ------------------------------------------------------------------------------
 
-portamento_read_tgt_freq_de macro
-	ld	a, (iy+NVM.tgt_freq+1)
+nvm_opn_port_read_tgt_freq_de macro
+	ld	a, (iy+NVMOPN.tgt_freq+1)
 	ld	d, a
-	ld	a, (iy+NVM.tgt_freq)
+	ld	a, (iy+NVMOPN.tgt_freq)
 	ld	e, a
 	endm
 
-portamento_write_tgt_freq_de macro
+nvm_opn_port_write_tgt_freq_de macro
 	ld	a, d
-	ld	(iy+NVM.tgt_freq+1), a
+	ld	(iy+NVMOPN.tgt_freq+1), a
 	ld	a, e
-	ld	(iy+NVM.tgt_freq), a
+	ld	(iy+NVMOPN.tgt_freq), a
 	endm
 
-portamento_read_now_freq_hl macro
-	ld	a, (iy+NVM.now_freq+1)
+nvm_opn_port_read_now_freq_hl macro
+	ld	a, (iy+NVMOPN.now_freq+1)
 	ld	h, a
-	ld	a, (iy+NVM.now_freq)
+	ld	a, (iy+NVMOPN.now_freq)
 	ld	l, a
 	endm
 
-portamento_write_now_freq_hl macro
+nvm_opn_port_write_now_freq_hl macro
 	ld	a, h
-	ld	(iy+NVM.now_freq+1), a
+	ld	(iy+NVMOPN.now_freq+1), a
 	ld	a, l
-	ld	(iy+NVM.now_freq), a
+	ld	(iy+NVMOPN.now_freq), a
 	endm
 
-portamento_write_now_freq_de macro
+nvm_opn_port_write_now_freq_de macro
 	ld	a, d
-	ld	(iy+NVM.now_freq+1), a
+	ld	(iy+NVMOPN.now_freq+1), a
 	ld	a, e
-	ld	(iy+NVM.now_freq), a
+	ld	(iy+NVMOPN.now_freq), a
 	endm
 
-nvm_portamento:
+nvm_opn_portamento:
 	ld	a, (iy+NVM.portamento)
 	or	a
 	jr	nz, .port_change ; TODO
 	; Portamento of 0 = instant
-	ld	a, (iy+NVM.tgt_freq)
-	ld	(iy+NVM.now_freq), a
-	ld	a, (iy+NVM.tgt_freq+1)
-	ld	(iy+NVM.now_freq+1), a
-	ld	a, (iy+NVM.tgt_block)
-	ld	(iy+NVM.now_block), a
+	ld	a, (iy+NVMOPN.tgt_freq)
+	ld	(iy+NVMOPN.now_freq), a
+	ld	a, (iy+NVMOPN.tgt_freq+1)
+	ld	(iy+NVMOPN.now_freq+1), a
+	ld	a, (iy+NVMOPN.tgt_block)
+	ld	(iy+NVMOPN.now_block), a
 	ret
 
 .port_change:
-	portamento_read_now_freq_hl
+	nvm_opn_port_read_now_freq_hl
 	; Compare target block to now
-	ld	a, (iy+NVM.now_block)
-	ld	b, (iy+NVM.tgt_block)
+	ld	a, (iy+NVMOPN.now_block)
+	ld	b, (iy+NVMOPN.tgt_block)
 	cp	b
 	jr	c, .target_block_higher
 	jp	z, .target_block_same
+; Target block is an octave below. Freq sweeps down, then if the frequency dips
+; below the OPN_NOTE_C threshhold, we decrement the octave and wrap freq.
 .target_block_lower:
 	; sub portamento from now freq
 	ld	a, (iy+NVM.portamento)
@@ -716,15 +757,14 @@ nvm_portamento:
 	ld	de, OPN_NOTE_C
 	compare_hl_r16 de
 	jr	nc, .now_freq_hl_commit
-	; if so, decrement now_block...
-	ld	a, (iy+NVM.now_block)
+	; if so, decrement now_block and add OPN_NOTE_C.
+	ld	de, OPN_NOTE_C  ; for addition
+	ld	a, (iy+NVMOPN.now_block)
 	sub	08h
-	and	3Fh
-	ld	(iy+NVM.now_block), a
-	; ...and add OPN_NOTE_C from freq.
-	ld	de, OPN_NOTE_C
-	add	hl, de
-	jr	.now_freq_hl_commit
+	jr	.new_block_mask_and_set
+
+; Target block is an octave above. Freq sweeps up, then if it dips above
+; OPN_NOTE_C*2, increment the octave and wrap req.
 .target_block_higher:
 	; add portamento to now freq
 	ld	a, (iy+NVM.portamento)
@@ -732,23 +772,23 @@ nvm_portamento:
 	; Is hl above OPN_NOTE_C*2?
 	ld	de, OPN_NOTE_C*2
 	compare_hl_r16 de
-	jr	c, +
-	; if so, increment now_block...
-	ld	a, (iy+NVM.now_block)
+	jr	c, .now_freq_hl_commit
+	; if so, increment now_block and subtract OPN_NOTE_C.
+	ld	de, 10000h-OPN_NOTE_C  ; subtraction of OPN_NOTE_C
+	ld	a, (iy+NVMOPN.now_block)
 	add	a, 08h
-	and	3Fh
-	ld	(iy+NVM.now_block), a
-	; ...and subtract OPN_NOTE_C from freq.
-	ld	de, 10000h-OPN_NOTE_C
+.new_block_mask_and_set
+	and	3Fh  ; TODO: Remove? is there any harm to those upper bits?
+	ld	(iy+NVMOPN.now_block), a
 	add	hl, de
 +:
 	; Write back the freq change and exit.
 .now_freq_hl_commit:
-	portamento_write_now_freq_hl
+	nvm_opn_port_write_now_freq_hl
 	ret
 
 .target_block_same:
-	portamento_read_tgt_freq_de
+	nvm_opn_port_read_tgt_freq_de
 	; Is the target frequency higher?
 	compare_hl_r16 de
 	ret	z  ; same block, same freq. get outta here
@@ -761,7 +801,7 @@ nvm_portamento:
 	jr	nc, .now_freq_hl_commit  ; nope
 	; Adopt target and get out.
 .now_freq_de_commit:
-	portamento_write_now_freq_de
+	nvm_opn_port_write_now_freq_de
 	ret
 .target_freq_higher:
 	ld	a, (iy+NVM.portamento)
@@ -774,16 +814,16 @@ nvm_portamento:
 
 ; ------------------------------------------------------------------------------
 ;
-; Key On/Off and Frequency Output
+; Key On/Off and Frequency Output (OPN)
 ;
 ; ------------------------------------------------------------------------------
 
 ; iy = channel struct
 ; if a key is pending, handles key off/on cycle.
-nvm_update_output:
-	ld	a, (iy+NVM.key_pending)
+nvmopn_update_output:
+	ld	a, (iy+NVMOPN.key_pending)
 	or	a
-	jr	z, nvm_express_freq_sub
+	jr	z, .express_freq_sub
 	ret	z
 	; First key off.
 	ld	a, OPN_REG_KEYON
@@ -792,7 +832,7 @@ nvm_update_output:
 	ld	(OPN_DATA0), a  ; data
 
 	push	af
-	call	nvm_express_freq_sub
+	call	.express_freq_sub
 
 	; Then key on.
 	; TODO: Can we avoid a second address set here?
@@ -803,11 +843,11 @@ nvm_update_output:
 	ld	(OPN_DATA0), a  ;
 	; Clear out pending key flag.
 	xor	a  ; a := 0
-	ld	(iy+NVM.key_pending), a
+	ld	(iy+NVMOPN.key_pending), a
 	ret
 
 ; Writes frequency to fn registers.
-nvm_express_freq_sub:
+.express_freq_sub:
 	ld	a, (iy+NVM.channel_id)
 	call	opn_set_base_de_sub
 	ld	c, a
@@ -819,8 +859,8 @@ nvm_express_freq_sub:
 	inc	de
 
 	; Hi reg data
-	ld	a, (iy+NVM.now_freq+1)
-	or	a, (iy+NVM.now_block)
+	ld	a, (iy+NVMOPN.now_freq+1)
+	or	a, (iy+NVMOPN.now_block)
 	ld	(de), a
 	dec	de
 	opn_set_delay
@@ -830,6 +870,6 @@ nvm_express_freq_sub:
 	add	a, OPN_REG_FN_LO
 	ld	(de), a
 	inc	de
-	ld	a, (iy+NVM.now_freq)
+	ld	a, (iy+NVMOPN.now_freq)
 	ld	(de), a
 	ret

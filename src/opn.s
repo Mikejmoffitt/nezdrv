@@ -7,6 +7,7 @@ OPN_TCTRL_DEFAULT = 3Fh
 ; shuts up the channels
 opn_reset:
 	; hush up the carriers
+	ld	hl, OPN_ADDR0
 	ld	a, OPN_REG_TL
 	ld	d, 7Fh  ; const mute value
 	ld	b, 10h
@@ -35,8 +36,6 @@ opn_init:
 	ldi	    ; address byte
 	ldi	    ; data byte
 	dec	de  ; DE points back to data
-	; add some delay for keyon regs
-	call	opn_keyon_delay_sub
 	djnz	.loop
 	ret
 

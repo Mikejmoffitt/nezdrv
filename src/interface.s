@@ -95,7 +95,6 @@ nez_hl_deref_relative_offs_sub:
 	add	hl, de
 	ret
 
-; The list is null-terminated.
 nez_bgm_assign_tracks_sub:
 	; Track list = hl + NEZINFO.track_list_offs
 	ld	hl, (CurrentContext+NVMCONTEXT.buffer_ptr)
@@ -104,27 +103,25 @@ nez_bgm_assign_tracks_sub:
 	call	nez_hl_deref_relative_offs_sub
 
 	; Set up tracks by walking the track list.
-	ld	iy, NvmBgmStart
+	ld	iy, NvmOpnBgm
+	ld	de, NVMOPN.len
+	ld	b, OPN_BGM_CHANNEL_COUNT
+	call	.loop
+	ld	iy, NvmPsgBgm
+	ld	de, NVMPSG.len
+	ld	b, PSG_BGM_CHANNEL_COUNT
+	; fall-through to .loop
+
 .loop:
-	; Load DE with the entry from the list.
 	ld	a, (hl)
-	ld	e, a
+	ld	(iy+NVM.pc), a
 	inc	hl
 	ld	a, (hl)
-	ld	d, a
+	ld	(iy+NVM.pc+1), a
 	inc	hl
-	; see if pointer is null, and if so, stop assigning tracks.
-	ld	a, e
-	or	d
-	ret	z
-	; copy pointer and proceed
-	ld	(iy+NVM.pc+1), d
-	ld	(iy+NVM.pc), e
-	ld	(iy+NVM.status), nvm_STATUS_ACTIVE
-.next_track:
-	ld	de, NVM.len
+	ld	(iy+NVM.status), NVM_STATUS_ACTIVE
 	add	iy, de
-	jr	.loop
+	djnz	.loop
 	ret
 
 nez_bgm_set_timers_sub:
