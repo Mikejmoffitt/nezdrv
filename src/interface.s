@@ -62,7 +62,11 @@ nez_load_pcm_sample:
 ; clobbers de, a
 nez_load_bgm_data:
 	call	nvm_context_bgm_set
+	; BGM is designed to replace old BGM data, so the user buffer load ptr
+	; is NOT advanced after loading.
 	call	nez_load_buffer_sub
+	ld	de, (CurrentContext+NVMCONTEXT.buffer_ptr)
+	ld	(UserBufferLoadPtr), de
 	call	nez_load_standard_rebase_sub
 	call	nez_bgm_assign_tracks_sub
 	call	nez_bgm_set_timers_sub
