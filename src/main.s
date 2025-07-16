@@ -23,6 +23,7 @@ start:
 	call	mailbox_init
 
 main:
+	pcm_service
 	; TODO: check mailbox
 	ld	a, (MailBoxCommand+NEZMB.cmd)
 	and	a
@@ -30,27 +31,25 @@ main:
 	call	mailbox_handle_cmd
 +:
 	; Wait for timer events.
-	ld	a, (OPN_BASE)
-	bit	1, a
-	jr	nz, .run_nvm
-	bit	0, a
-	jr	z, main
-	rst	pcm_poll
-	jr	main
+	pcm_service
+	rrca
+	jr	nc, main
 
 .run_nvm:
 	; Ack timer B
-	ld	a, OPN_REG_TCTRL
-	ld	(OPN_ADDR0), a
-	ld	a, OPN_TB_ACK
-	ld	(OPN_DATA0), a
+	ld	hl, OPN_BASE
+	ld	(hl), OPN_REG_TCTRL
+	inc	hl
+	ld	(hl), OPN_TB_ACK
 
 	ld	a, (BgmPlaying)
 	and	a
 	jr	z, .stopped
 
+	pcm_service
 	call	nvm_context_iter_opn_bgm_set
 	call	nvm_poll_opn
+	pcm_service
 	call	nvm_contest_iter_opn_sfx_set
 	call	nvm_poll_opn
 	jr	main

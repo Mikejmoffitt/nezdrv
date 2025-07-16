@@ -14,6 +14,10 @@ SfxTrackListPtr:       ds 2
 ; BGM Specific
 BgmPlaying:            ds 1
 
+; PCM playback state.
+PcmListPtr:            ds 2
+PcmAddr:               ds 2  ; current sample address.
+
 	align	10h
 
 ; Playback channel state.
@@ -31,6 +35,7 @@ StackStart:            ds 2*NEZ_STACK_DEPTH
 StackEnd:
 
 ; This is where user data (tracks, instruments, etc) lives.
+UserBufferLoadPtr:     ds 2
 UserBuffer:
 
 

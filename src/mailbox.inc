@@ -35,16 +35,33 @@ NEZMB_EFFECT_CUE ends
 ;
 ; The mailbox lives at $1FF0. The first byte is the command, followed by data
 ; which varies based on the command (see the structure overlays).
+;
+; To initialize:
+;
+; 1) Load the NEZDRV binary into Z80 memory at 0000h and release reset.
+; 2) Wait for the mailbox last three bytes to read "NEZ"
+; 3) Issue NEZ_CMD_LOAD_SFX with a pointer to the SFX data.
+; 4) Issue NEZ_CMD_LOAD_PCM for each PCM sample.
+;
+; To play BGM:
+;
+; 5) Issue NEZ_CMD_LOAD_BGM with a pointer to the BGM data.
+;
+; BGM can be stopped using a command, or simply another can be loaded and played
+; without having to do any other preparation. SFX and PCM should not be loaded
+; more than once as that data is expected to be permanent.
+
 
 NEZ_CMD_READY          = 0
 NEZ_CMD_LOAD_SFX       = 1
-NEZ_CMD_LOAD_BGM       = 2
-NEZ_CMD_PLAY_BGM       = 3
-NEZ_CMD_PAUSE_BGM      = 4
-NEZ_CMD_STOP_BGM       = 5
-NEZ_CMD_STOP_SFX       = 6
-NEZ_CMD_SET_VOLUME_SFX = 7
-NEZ_CMD_SET_VOLUME_BGM = 8
+NEZ_CMD_LOAD_PCM       = 2
+NEZ_CMD_LOAD_BGM       = 3
+NEZ_CMD_PLAY_BGM       = 4
+NEZ_CMD_PAUSE_BGM      = 5
+NEZ_CMD_STOP_BGM       = 6
+NEZ_CMD_STOP_SFX       = 7
+NEZ_CMD_SET_VOLUME_SFX = 8
+NEZ_CMD_SET_VOLUME_BGM = 9
 
 ; The last three bytes are used for the sound driver to indicate it has fully
 ; initialized itself. After initializing the driver, check that the following
@@ -80,7 +97,19 @@ NEZ_CMD_SET_VOLUME_BGM = 8
 ;
 ; ------------------------------------------------------------------------------
 ;
-; 02h NEZ_CMD_LOAD_BGM
+; 02h NEZ_CMD_LOAD_PCM
+;
+; ------------------------------------------------------------------------------
+;
+; A pointer to a single PCM sample address is issued. Each one is added to an
+; internal list of PCM effects. Each PCM sample reference eats 3 bytes of memory
+; that could go towards BGM and SFX data, but the true upper limit is 85.
+;
+; Mailbox overlay: NEZMB_CMD_LOAD
+;
+; ------------------------------------------------------------------------------
+;
+; 03h NEZ_CMD_LOAD_BGM
 ;
 ; ------------------------------------------------------------------------------
 ;
@@ -95,7 +124,7 @@ NEZ_CMD_SET_VOLUME_BGM = 8
 ;
 ; ------------------------------------------------------------------------------
 ;
-; 03h NEZ_CMD_PLAY_BGM
+; 04h NEZ_CMD_PLAY_BGM
 ;
 ; ------------------------------------------------------------------------------
 ;
@@ -105,7 +134,7 @@ NEZ_CMD_SET_VOLUME_BGM = 8
 ;
 ; ------------------------------------------------------------------------------
 ;
-; 04h NEZ_CMD_STOP_BGM
+; 06h NEZ_CMD_STOP_BGM
 ;
 ; ------------------------------------------------------------------------------
 ;
@@ -115,7 +144,17 @@ NEZ_CMD_SET_VOLUME_BGM = 8
 ;
 ; ------------------------------------------------------------------------------
 ;
-; 05h NEZ_CMD_STOP_SFX
+; 07h NEZ_CMD_PAUSE_BGM
+;
+; ------------------------------------------------------------------------------
+;
+; The current BGM is paused.
+;
+; Mailbox overlay: NEZMB
+;
+; ------------------------------------------------------------------------------
+;
+; 07h NEZ_CMD_STOP_SFX
 ;
 ; ------------------------------------------------------------------------------
 ;
@@ -125,7 +164,7 @@ NEZ_CMD_SET_VOLUME_BGM = 8
 ;
 ; ------------------------------------------------------------------------------
 ;
-; 06h NEZ_CMD_SET_VOLUME_SFX
+; 08h NEZ_CMD_SET_VOLUME_SFX
 ;
 ; ------------------------------------------------------------------------------
 ;
@@ -135,7 +174,7 @@ NEZ_CMD_SET_VOLUME_BGM = 8
 ;
 ; ------------------------------------------------------------------------------
 ;
-; 07h NEZ_CMD_SET_VOLUME_BGM
+; 09h NEZ_CMD_SET_VOLUME_BGM
 ;
 ; ------------------------------------------------------------------------------
 ;

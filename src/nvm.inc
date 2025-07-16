@@ -15,7 +15,7 @@ TOTAL_BGM_CHANNEL_COUNT = OPN_BGM_CHANNEL_COUNT+PSG_BGM_CHANNEL_COUNT
 TOTAL_SFX_CHANNEL_COUNT = OPN_SFX_CHANNEL_COUNT+PSG_SFX_CHANNEL_COUNT
 TOTAL_CHANNEL_COUNT = TOTAL_BGM_CHANNEL_COUNT+TOTAL_SFX_CHANNEL_COUNT
 
-NVM_STACK_DEPTH = 5
+NVM_STACK_DEPTH = 6
 
 NVM_STATUS_INACTIVE = 0
 NVM_STATUS_ACTIVE = 1
@@ -34,13 +34,13 @@ status:         ds 1
 channel_id:     ds 1
 
 ; Control flow
+stack:          ds NVM_STACK_DEPTH*2
+stack_ptr:      ds 2
 pc:             ds 2
 loop_ptr:       ds 2
 loop_cnt:       ds 1
 rest_val:       ds 1
 rest_cnt:       ds 1
-stack_ptr:      ds 2
-stack:          ds NVM_STACK_DEPTH*2
 
 ; Note settings
 volume:         ds 1  ; really attenuation, summed with tl on key-on.
@@ -68,6 +68,9 @@ tl_conoffs:     ds 1  ; pre-multiplied jr table offset for tl setting (patch con
 tl:             ds 4  ; TL values from when instrument was set.
 pan:            ds 1  ; pan/ams/pms register.
 
+
+pad:            ds 1
+
 NVM endstruct
 
 NVMCONTEXT struct
@@ -86,5 +89,4 @@ tb:                    ds 1  ; Timer B value (tempo control) (ignored for SFX)
 ; Null-terminated lists that are relative to the start of the data blob.
 track_list_offs:       ds 2  ; For SFX, these are the effect indices.
 instrument_list_offs:  ds 2
-pcm_list_offs:         ds 2
 NEZINFO endstruct

@@ -6,25 +6,56 @@
 ;
 ; ------------------------------------------------------------------------------
 
+; Memory use:
+;
+; engine:
+; [code]
+; [work RAM]
+; user buffer:
+; [sfx data]
+; [pcm list]
+; [bgm data]*
+;
+; First SFX data is loaded. The sound effect buffer in principle always starts
+; at the user buffer address, but that could change at some point.
+; After loading SFX data, the PCM list pointer is set to the address tater.
+;
+; PCM data is loaded one sample at a time. The user buffer pointer is bumped
+; with every addition.
+;
+; When BGM is loaded, it uses the user buffer pointer (which hangs out after
+; the PCM list) and the buffer pointer does not change from thereon. This allows
+; the BGM to be re-loaded without disturbing sound effects.
+;
+
+
 ; hl = track head
 ; clobbers de, a
 nez_load_sfx_data:
 	call	nvm_context_sfx_set
 	call	nez_load_buffer_sub
-	; Timers are not set.
-	ld	(CurrentContext+NVMCONTEXT.buffer_ptr), de  ; This sets up the BGM buffer address.
+	ld	(PcmListPtr), de  ; PCM data
 	call	nez_load_standard_rebase_sub
 
 	ld	de, (CurrentContext+NVMCONTEXT.instrument_list_ptr)
 	ld	(SfxContext+NVMCONTEXT.instrument_list_ptr), de
-	ld	de, (CurrentContext+NVMCONTEXT.pcm_list_ptr)
-	ld	(SfxContext+NVMCONTEXT.pcm_list_ptr), de
 
 	; Sfx track pointer is needed to handle cue commands.
 	ld	de, NEZINFO.track_list_offs
 	call	nez_get_list_head_sub
 	ld	(SfxTrackListPtr), hl
 
+	ret
+
+; hl = pointer to argument PCM data in mailbox
+; the data is just copied as-is, as it is already formatted correctly.
+; the user buffer is advanced.
+nez_load_pcm_sample:
+	ld	de, (UserBufferLoadPtr)
+	rept	3
+	ldi
+	endm
+	ld	(UserBufferLoadPtr), de
 	ret
 
 ; hl = track head
@@ -37,19 +68,19 @@ nez_load_bgm_data:
 	call	nez_bgm_set_timers_sub
 	ld	de, (CurrentContext+NVMCONTEXT.instrument_list_ptr)
 	ld	(BgmContext+NVMCONTEXT.instrument_list_ptr), de
-	ld	de, (CurrentContext+NVMCONTEXT.pcm_list_ptr)
-	ld	(BgmContext+NVMCONTEXT.pcm_list_ptr), de
 	ret
 
 ; hl = buffer
 nez_load_buffer_sub:
-	ld	de, (CurrentContext+NVMCONTEXT.buffer_ptr)
+	ld	de, (UserBufferLoadPtr)
+	ld	(CurrentContext+NVMCONTEXT.buffer_ptr), de
 	; The first two bytes contain (byte count - 2).
 	ld	c, (hl)
 	inc	hl
 	ld	b, (hl)
 	inc	hl
 	ldir
+	ld	(UserBufferLoadPtr), de
 	ret
 
 ; input: hl pointing to a list head offset
@@ -67,7 +98,7 @@ nez_hl_deref_relative_offs_sub:
 ; The list is null-terminated.
 nez_bgm_assign_tracks_sub:
 	; Track list = hl + NEZINFO.track_list_offs
-	ld	hl, (BgmContext+NVMCONTEXT.buffer_ptr)
+	ld	hl, (CurrentContext+NVMCONTEXT.buffer_ptr)
 	ld	de, NEZINFO.track_list_offs
 	add	hl, de  ; hl now points to the track list offset value.
 	call	nez_hl_deref_relative_offs_sub
@@ -98,7 +129,7 @@ nez_bgm_assign_tracks_sub:
 
 nez_bgm_set_timers_sub:
 	; Set the timers.
-	ld	hl, (BgmContext+NVMCONTEXT.buffer_ptr)
+	ld	hl, (CurrentContext+NVMCONTEXT.buffer_ptr)
 	ld	de, NEZINFO.ta
 	add	hl, de
 	ld	de, OPN_ADDR0
@@ -113,6 +144,8 @@ nez_bgm_set_timers_sub:
 	dec	de
 	inc	hl
 	inc	c
+	push	hl
+	pop	hl  ; just a delay
 	djnz	.loop
 	ret
 
@@ -121,8 +154,7 @@ nez_bgm_set_timers_sub:
 ;
 nez_load_standard_rebase_sub:
 	call	nez_rebase_tracks
-	call	nez_rebase_instruments
-	jr	nez_rebase_pcm
+	jr	nez_rebase_instruments
 
 nez_rebase_tracks:
 	ld	de, NEZINFO.track_list_offs
@@ -133,12 +165,6 @@ nez_rebase_instruments:
 	ld	de, NEZINFO.instrument_list_offs
 	call	nez_get_list_head_sub
 	ld	(CurrentContext+NVMCONTEXT.instrument_list_ptr), hl
-	jr	nez_rebase_relative_list_sub
-
-nez_rebase_pcm:
-	ld	de, NEZINFO.pcm_list_offs
-	call	nez_get_list_head_sub
-	ld	(CurrentContext+NVMCONTEXT.pcm_list_ptr), hl
 	jr	nez_rebase_relative_list_sub
 
 ; de = NEZINFO offset

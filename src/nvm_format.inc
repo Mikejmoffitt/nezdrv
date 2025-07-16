@@ -8,6 +8,10 @@
 ; Track header definition.
 ;
 
+NEZ_PCMRATE_DEFAULT = 03FBh
+NEZ_TEMPO_DEFAULT = 0E0h
+NEZ_REST_LENGTH_DEFAULT = 12
+
 nTrackRelPtr macro lbl
 	dw	lbl-NEZ_TRACK_BASE-2
 	endm
@@ -16,15 +20,27 @@ nTrackListEnd macro
 	dw	0
 	endm
 
-nTrackHeader macro endptr, pcmrate, temporate, tracklist, instrumentlist, pcmlist
+nPcmRateEncode macro pcmrate
+	db	((pcmrate)>>2)
+	db	((pcmrate)&03h)
+	endm
+
+nTrackHeader macro endptr, pcmrate, temporate, tracklist, instrumentlist
 NEZ_TRACK_BASE := $
 	nTrackRelPtr endptr
-	dw	pcmrate
+	nPcmRateEncode pcmrate
 	db	temporate
 	nTrackRelPtr tracklist
 	nTrackRelPtr instrumentlist
-	nTrackRelPtr pcmlist
 	endm
+
+nPcmDef macro filename
+	dw	.pcmend-.pcmstart
+.pcmstart:
+	binclude	filename
+.pcmend:
+	endm
+
 
 
 ; Sound engine instruction bytes.
@@ -71,6 +87,12 @@ NVM_NOTE_OFF = 3*18
 NVM_SLIDE    = 3*19
 ; Set timer A value +2 bytes
 NVM_PCMRATE  = 3*20
+; Enable or disable PCM mode +1 byte (80h = enable)
+NVM_PCMMODE  = 3*21
+; Play a PCM sample by ID + 1 byte
+NVM_PCMPLAY  = 3*22
+; Stop PCM playback.
+NVM_PCMSTOP  = 3*23
 
 ; The note instructions allow the low nybble to be used as an offset into the
 ; frequency table after masking with 1Fh.
@@ -133,7 +155,7 @@ nLpEnd macro
 	db	NVM_LOOPEND
 	endm
 
-NTempo macro tval
+nTempo macro tval
 	db	NVM_TEMPO, tval
 	endm
 
@@ -157,7 +179,7 @@ nOctDn macro
 	db	NVM_OCT_DOWN
 	endm
 
-NInst	macro instno
+nInst	macro instno
 	db	NVM_INST, (instno)*2
 	endm
 
@@ -181,114 +203,144 @@ nPanR macro
 	nPan OPN_PAN_R
 	endm
 
-NPms macro pmsval
+nPms macro pmsval
 	db	NVM_PMS, ((pmsval)&07h)<<OPN_PMS_SHIFT
 	endm
 
-NAms macro amsval
+nAms macro amsval
 	db	NVM_AMS, ((amsval)&03h)<<OPN_AMS_SHIFT
 	endm
 
-NOpnReg macro regno, regval
+nOpnReg macro regno, regval
 	db	NVM_OPN_REG, regno, regval
 	endm
 
-NStop macro
+nStop macro
 	db	NVM_STOP
 	endm
 
-nNoteOff macro
+nOff macro spcarg=-1
 	db	NVM_NOTE_OFF
+	IF spcarg == -1
+	nRest
+	ENDIF  ; spcarg
+	IF spcarg > 0
+	nRest	spcarg
+	ENDIF  ; spcarg
 	endm
 
 nSlide macro slideval
 	db	NVM_SLIDE, slideval
 	endm
 
-NPcmRate macro rateval
+nPcmRate macro rateval
 	db	NVM_PCMRATE
 	; data is massaged for Timer-A register consumption.
-	db	((rateval)>>2)
-	db	((rateval)&03h)
+	nPcmRateEncode rateval
 	endm
 
-nNote macro noteval, restval
-	IF restval > 0
-	db	noteval | NVM_NOTE_REST_FLAG
-	db	restval
+nPcmMode macro enabled
+	db	NVM_PCMMODE
+	IF enabled > 0
+	db	80h
 	ELSE
-	db	noteval
-	ENDIF  ; restval
+	db	00h
+	ENDIF  ; enabled
 	endm
 
-nC macro restarg=0
-	nNote	NVM_NOTE_C, restarg
+nPcmPlay macro id, spcarg=-1
+	db	NVM_PCMPLAY
+	db	(id)*3
+	IF	spcarg == -1
+	nRest
+	ELSE
+	IF restart > 0
+	nRest spcarg
+	ENDIF
+	ENDIF
 	endm
 
-nCs macro restarg=0
-	nNote	NVM_NOTE_Cs, restarg
+nPcmStop macro
+	db	NVM_PCMSTOP
 	endm
 
-nD macro restarg=0
-	nNote	NVM_NOTE_D, restarg
+nNote macro noteval, spcarg
+	IF spcarg > 0
+	db	noteval | NVM_NOTE_REST_FLAG | (spcarg>>8)
+	db	(spcarg & 0FFh)
+	ELSE
+	db	noteval | (spcarg>>8)
+	ENDIF  ; spcarg
 	endm
 
-nDs macro restarg=0
-	nNote	NVM_NOTE_Ds, restarg
+nC macro spcarg=0
+	nNote	NVM_NOTE_C, spcarg
 	endm
 
-nE macro restarg=0
-	nNote	NVM_NOTE_E, restarg
+nCs macro spcarg=0
+	nNote	NVM_NOTE_Cs, spcarg
 	endm
 
-nF macro restarg=0
-	nNote	NVM_NOTE_F, restarg
+nD macro spcarg=0
+	nNote	NVM_NOTE_D, spcarg
 	endm
 
-nFs macro restarg=0
-	nNote	NVM_NOTE_Fs, restarg
+nDs macro spcarg=0
+	nNote	NVM_NOTE_Ds, spcarg
 	endm
 
-nG macro restarg=0
-	nNote	NVM_NOTE_G, restarg
+nE macro spcarg=0
+	nNote	NVM_NOTE_E, spcarg
 	endm
 
-nGs macro restarg=0
-	nNote	NVM_NOTE_Gs, restarg
+nF macro spcarg=0
+	nNote	NVM_NOTE_F, spcarg
 	endm
 
-nA macro restarg=0
-	nNote	NVM_NOTE_A, restarg
+nFs macro spcarg=0
+	nNote	NVM_NOTE_Fs, spcarg
 	endm
 
-nAs macro restarg=0
-	nNote	NVM_NOTE_As, restarg
+nG macro spcarg=0
+	nNote	NVM_NOTE_G, spcarg
 	endm
 
-nB macro restarg=0
-	nNote	NVM_NOTE_B, restarg
+nGs macro spcarg=0
+	nNote	NVM_NOTE_Gs, spcarg
 	endm
 
-nBs macro restarg=0
-	nNote	NVM_NOTE_Bs, restarg
+nA macro spcarg=0
+	nNote	NVM_NOTE_A, spcarg
 	endm
 
-nDb macro restarg=0
-	nCs restarg
+nAs macro spcarg=0
+	nNote	NVM_NOTE_As, spcarg
 	endm
 
-nEb macro restarg=0
-	nDs restarg
+nB macro spcarg=0
+	nNote	NVM_NOTE_B, spcarg
 	endm
 
-nGb macro restarg=0
-	nFs restarg
+nBs macro spcarg=0
+	nNote	NVM_NOTE_Bs, spcarg
 	endm
 
-nAb macro restarg=0
-	nGs restarg
+nDb macro spcarg=0
+	nCs spcarg
 	endm
 
-nBb macro restarg=0
-	nAs restarg
+nEb macro spcarg=0
+	nDs spcarg
+	endm
+
+nGb macro spcarg=0
+	nFs spcarg
+	endm
+
+nAb macro spcarg=0
+	nGs spcarg
+	endm
+
+nBb macro spcarg=0
+	nAs spcarg
 	endm

@@ -19,6 +19,7 @@ mailbox_handle_cmd:
 	jptbl_dispatch
 	jp	mbcmd_done             ; NEZ_CMD_READY
 	jp	mbcmd_load_sfx         ; NEZ_CMD_LOAD_SFX
+	jp	mbcmd_load_pcm         ; NEZ_CMD_LOAD_PCM
 	jp	mbcmd_load_bgm         ; NEZ_CMD_LOAD_BGM
 	jp	mbcmd_play_bgm         ; NEZ_CMD_PLAY_BGM
 	jp	mbcmd_pause_bgm        ; NEZ_CMD_PAUSE_BGM
@@ -26,6 +27,7 @@ mailbox_handle_cmd:
 	jp	mbcmd_stop_sfx         ; NEZ_CMD_STOP_SFX
 	jp	mbcmd_set_volume_sfx   ; NEZ_CMD_SET_VOLUME_SFX
 	jp	mbcmd_set_volume_bgm   ; NEZ_CMD_SET_VOLUME_BGM
+
 mbcmd_load_bgm:
 	push	hl
 	call	nvm_bgm_reset
@@ -54,6 +56,10 @@ mbcmd_load_sfx:
 	call	nez_load_sfx_data
 	pop	hl
 
+	jr	mbcmd_done
+
+mbcmd_load_pcm:
+	call	nez_load_pcm_sample
 	jr	mbcmd_done
 
 mbcmd_play_bgm:         ; NEZ_CMD_PLAY_BGM

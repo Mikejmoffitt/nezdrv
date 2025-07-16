@@ -20,10 +20,14 @@ nvm_init:
 	add	iy, de
 	djnz	-
 
-	; BgmBufferPtr starts at UserBuffer so that BGM works even without SFX.
+	; All buffers start at UserBuffer. It is expected that SFX and PCM are
+	; set once, while BGM can be exchanged. It's also okay to omit SFX and
+	; PCM loads.
 	ld	hl, UserBuffer
+	ld	(UserBufferLoadPtr), hl
 	ld	(BgmContext+NVMCONTEXT.buffer_ptr), hl
 	ld	(SfxContext+NVMCONTEXT.buffer_ptr), hl
+	ld	(PcmListPtr), hl
 	xor	a
 	ld	(BgmContext+NVMCONTEXT.global_volume), a
 	ld	(SfxContext+NVMCONTEXT.global_volume), a
@@ -85,6 +89,8 @@ nvm_reset_sub:
 	; Default highest volume.
 	dec	a
 	ld	(iy+NVM.volume), a
+	; Turn off PCM
+	pcm_poll_disable
 	ret
 
 ; ------------------------------------------------------------------------------
@@ -145,12 +151,14 @@ nvm_poll_opn:
 	cp	nvm_STATUS_INACTIVE
 	jr	z, .next_chan
 	call	nvm_exec_opn
+	pcm_service
 	call	nvm_portamento
+	pcm_service
 	call	nvm_update_output
 .next_chan:
 	ld	de, NVM.len
 	add	iy, de
-	rst	pcm_poll
+	pcm_service
 	pop	bc
 	djnz	.loop
 	ret
@@ -202,6 +210,9 @@ nvm_exec_opn:
 	jp	nvm_op_note_off ; 18
 	jp	nvm_op_slide    ; 19
 	jp	nvm_op_pcmrate  ; 20
+	jp	nvm_op_pcmmode  ; 21
+	jp	nvm_op_pcmplay  ; 22
+	jp	nvm_op_pcmstop  ; 23
 
 ; ------------------------------------------------------------------------------
 
@@ -211,6 +222,8 @@ nvm_op_finished:
 	ld	(iy+NVM.pc), l
 nvm_op_reenter:
 	jr	nvm_exec_opn
+
+
 
 ; ------------------------------------------------------------------------------
 
@@ -455,9 +468,50 @@ nvm_op_slide:    ; 19
 	jp	nvm_op_finished
 
 nvm_op_pcmrate:  ; 20
+	ld	a, OPN_REG_TA_HI
+	ld	(OPN_ADDR0), a
+	ld	a, (hl)
 	inc	hl
+	ld	(OPN_DATA0), a
+	nop
+	ld	a, OPN_REG_TA_LO
+	ld	(OPN_ADDR0), a
+	ld	a, (hl)
 	inc	hl
+	ld	(OPN_DATA0), a
 
+	jp	nvm_op_finished
+
+nvm_op_pcmmode:  ; 21
+	ld	a, OPN_REG_DACSEL
+	ld	(OPN_ADDR0), a  ; addr
+	ld	a, (hl)
+	ld	(OPN_DATA0), a  ; addr
+	inc	hl
+	jp	nvm_op_finished
+
+nvm_op_pcmplay:  ; 22
+	ld	d, 00h
+	ld	e, (hl)
+	inc	hl
+	push	hl
+	ld	hl, (PcmListPtr)
+	add	hl, de  ; += pcm id offset
+	ld	a, (hl)
+	call	bank_set
+	inc	hl
+	; de take the PCM address
+	ld	e, (hl)
+	inc	hl
+	ld	d, (hl)
+	ld	(PcmAddr), de
+	; Enable PCM
+	pcm_poll_enable
+	pop	hl
+	jp	nvm_op_finished
+
+nvm_op_pcmstop:  ; 23
+	pcm_poll_disable
 	jp	nvm_op_finished
 
 ; ------------------------------------------------------------------------------
