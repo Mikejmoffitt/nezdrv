@@ -164,7 +164,7 @@ nLength macro lenval
 	endm
 
 nRest macro restval=0
-	db	NVM_REST, restval
+	db	NVM_REST, (restval)
 	endm
 
 nOct macro octno
@@ -265,11 +265,11 @@ nPcmStop macro
 	endm
 
 nNote macro noteval, spcarg
-	IF spcarg > 0
-	db	noteval | NVM_NOTE_REST_FLAG | (spcarg>>8)
-	db	(spcarg & 0FFh)
+	IF (spcarg) > 0
+	db	noteval | NVM_NOTE_REST_FLAG | ((spcarg)>>8)
+	db	((spcarg) & 0FFh)
 	ELSE
-	db	noteval | (spcarg>>8)
+	db	noteval | ((spcarg)>>8)
 	ENDIF  ; spcarg
 	endm
 

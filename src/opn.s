@@ -2,8 +2,6 @@
 ; Hushes all channels and sets some basic control values.
 ;
 
-OPN_TCTRL_DEFAULT = 3Fh
-
 ; shuts up the channels
 opn_reset:
 	; hush up the carriers
@@ -11,16 +9,24 @@ opn_reset:
 	ld	a, OPN_REG_TL
 	ld	d, 7Fh  ; const mute value
 	ld	b, 10h
+	call	.loop
+	ld	a, OPN_REG_SL_RR
+	ld	d, 3Fh  ; instant release
+	ld	b, 10h
+	call	.loop
+	jr	opn_init
+	; fall-through to .loop
 .loop:
 	ld	(hl), a
 	inc	hl
 	ld	(hl), d
 	dec	hl
-	call	opn_keyon_delay_sub
+
+	push	ix
+	pop	ix
 	inc	a  ; next tl
 	djnz	.loop
-	ld	hl, opn_init.init_data_quiet
-	jr	opn_init.start
+	ret
 
 
 opn_init:
@@ -40,10 +46,7 @@ opn_init:
 	ret
 
 .init_data:
-	db	OPN_REG_TA_HI, 10h
-	db	OPN_REG_TA_LO, 10h
-	db	OPN_REG_TB,    20h
-	db	OPN_REG_TCTRL, OPN_TCTRL_DEFAULT
+	db	OPN_REG_TCTRL, 3Fh
 .init_data_quiet:
 	db	OPN_REG_KEYON, 00h  ; all notes key off
 	db	OPN_REG_KEYON, 01h
@@ -62,73 +65,47 @@ opn_set_base_de_sub:
 	opn_set_base_de
 	ret
 
-;opn_wait_sub:
-	;ld	hl, OPN_BASE
-;.wait:
-	;ld	a, (hl)
-	;and	a
-	;ret	p
-	;jr	.wait
-
-
-
 ; Writes address register using c as the block offset
 ; ix = OPN_BASE
-opn_set_datwalk	macro	regno
-	ld	a, regno
-	call	.write_sub
-	endm
+;opn_set_datwalk	macro	regno
+;	ld	a, regno
+;	call	.write_sub
+;	endm
 
-opn_set_datwalk_4op	macro	regno
-	ld	a, regno
-	call	.write_4op_sub
-	endm
+;opn_set_datwalk_4op	macro	regno
+;	ld	a, regno
+;	call	.write_4op_sub
+;	endm
 
 ; hl = patch data
-; a = channel num (0 - 6; '3' and '7' do not exist)
+; a = channel reg offset (0 - 6; '3' and '7' do not exist)
 opn_set_patch:
 	opn_set_base_de  ; Set up ix with OPN_BASE or OPN_BASE2 by channel number.
-	ld	c, a  ; Get channel offset into C.
-	opn_set_datwalk OPN_REG_FB_CON
-	opn_set_datwalk_4op OPN_REG_DT_MUL
-	opn_set_datwalk_4op OPN_REG_TL
-	opn_set_datwalk_4op OPN_REG_KS_AR
-	opn_set_datwalk_4op OPN_REG_AM_DR
-	opn_set_datwalk_4op OPN_REG_SR
-	opn_set_datwalk_4op OPN_REG_SL_RR
-	opn_set_datwalk_4op OPN_REG_SSG_EG
+
+	; Patch data is just the register data in a row, so scoop it all.
+	ld	c, a
+	ld	a, OPN_REG_FB_CON
+	add	a, c
+	call	.write_sub
+	; Now scoop all the reg data
+	ld	b, 1+(7*4)  ; fb_con plus 4op patch data.
+	ld	a, OPN_REG_DT_MUL
+	add	a, c
+.patchdata_loop:
+	ld	i, a  ; i = scratch since we are not using IM2
+	call	.write_sub
+	ld	a, i
+	add	a, 4  ; go to next op
+	djnz	.patchdata_loop
 	ret
 
-; a = base reg
-; c = channel offs
+; a = reg
 ; (hl) = data
 .write_sub:
-	add	a, c  ; channel bits
 	ld	(de), a
 	inc	de
 	ld	a, (hl)
 	ld	(de), a
 	dec	de
 	inc	hl
-	opn_set_delay
-	ret
-
-; a = base reg
-; c = channel offs
-; (hl) = data
-.write_4op_sub:
-	add	a, c  ; channel bits
-	ld	b, 4  ; four operators
-.write_4op_loop:
-	ld	i, a  ; we aren't using IM2 so i is scratch
-	ld	(de), a  ; 19 addr
-	inc	de
-	ld	a, (hl)    ; 7
-	ld	(de), a  ; 19 data
-	dec	de
-	ld	a, i
-	inc	hl
-	add	a, 4  ; go to next op
-	opn_set_delay
-	djnz	.write_4op_loop
 	ret
