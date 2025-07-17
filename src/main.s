@@ -23,7 +23,6 @@ start:
 	call	mailbox_init
 
 main:
-	pcm_service
 	; TODO: check mailbox
 	ld	a, (MailBoxCommand+NEZMB.cmd)
 	and	a
@@ -31,8 +30,8 @@ main:
 	call	mailbox_handle_cmd
 +:
 	; Wait for timer events.
-	pcm_service
-	rrca
+	pcm_service  ; status exists in a and carry
+	rrca  ; test bit B
 	jr	nc, main
 
 .run_nvm:
@@ -46,16 +45,24 @@ main:
 	and	a
 	jr	z, .stopped
 
-	pcm_service
-	call	nvm_context_iter_opn_bgm_set
-	call	nvm_poll_opn
-	pcm_service
 	call	nvm_context_iter_opn_sfx_set
 	call	nvm_poll_opn
+
+	; Update mute status of BGM channels
+	ld	a, (NvmOpnSfx+NVM.status+NVMOPN.len*0)
+	ld	(NvmOpnBgm+NVM.mute+NVMOPN.len*0), a
+	ld	a, (NvmOpnSfx+NVM.status+NVMOPN.len*1)
+	ld	(NvmOpnBgm+NVM.mute+NVMOPN.len*1), a
+	ld	a, (NvmOpnSfx+NVM.status+NVMOPN.len*2)
+	ld	(NvmOpnBgm+NVM.mute+NVMOPN.len*2), a
+
+	call	nvm_context_iter_opn_bgm_set
+	call	nvm_poll_opn
+
+
 	jr	main
 
 .stopped:
-	ld	a, (BgmPlaying)
 	jp	m, main ; don't reset state if just paused.
 	call	nvm_bgm_reset
 	jp	main

@@ -2,7 +2,7 @@
 ; Work RAM begin
 ;
 
-NEZ_STACK_DEPTH = 16
+NEZ_STACK_DEPTH = 12
 
 StackStart:            ds 2*NEZ_STACK_DEPTH
 StackEnd:
@@ -16,12 +16,12 @@ CurrentContext:        ds NVMCONTEXT.len
 SfxTrackListPtr:       ds 2
 ; BGM Specific
 BgmPlaying:            ds 1
-
 ; PCM playback state.
 PcmListPtr:            ds 2
 PcmAddr:               ds 2  ; current sample address.
+PsgMacroPtr:           ds 2
 
-	align	10h
+;	align	10h
 
 ; Playback channel state.
 NvmOpnBgm:             ds NVMOPN.len * OPN_BGM_CHANNEL_COUNT

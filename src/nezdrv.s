@@ -22,9 +22,3 @@ v_rst0:
 	include	"src/opn.s"
 	include	"src/nvm.s"
 	include	"src/vars.s"
-
-
-
-	;org	1400h
-	; Temporary data placement
-	;include	"src/test_data.s"

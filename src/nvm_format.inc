@@ -25,13 +25,14 @@ nPcmRateEncode macro pcmrate
 	db	((pcmrate)&03h)
 	endm
 
-nTrackHeader macro endptr, pcmrate, temporate, tracklist, instrumentlist
+nTrackHeader macro endptr, pcmrate, temporate, tracklist, instrumentlist, macrolist
 NEZ_TRACK_BASE := $
 	nTrackRelPtr endptr
 	nPcmRateEncode pcmrate
 	db	temporate
 	nTrackRelPtr tracklist
 	nTrackRelPtr instrumentlist
+	nTrackRelPtr macrolist
 	endm
 
 nPcmDef macro filename

@@ -40,11 +40,11 @@ nvm_init:
 	ret
 
 .opn_channel_id_tbl:
-	db	0, 1, 2, 4, 5, 6
-	db	0, 1, 2
+	db	0, 1, 2, 4, 5, 6  ; bgm
+	db	0, 1, 2           ; sfx
 .psg_channel_id_tbl:
-	db	00h, 20h, 40h
-	db	00h, 20h, 40h
+	db	00h, 20h, 40h     ; bgm
+	db	00h, 20h, 40h     ; sfx
 
 
 ; hl = channel id assignment tbl
@@ -69,9 +69,10 @@ nvm_reset_sub:
 	; Zero some defaults to inactive
 	xor	a
 	ld	(iy+NVM.status), a      ; inactive
+	ld	(iy+NVM.mute), a        ; unmuted
 	ld	(iy+NVM.portamento), a  ; no portamento
-	ld	(iy+NVM.vib_mag), a     ; no vibrato
-	ld	(iy+NVM.vib_cnt), a     ; v counter reset
+;	ld	(iy+NVM.vib_mag), a     ; no vibrato
+;	ld	(iy+NVM.vib_cnt), a     ; v counter reset
 	ld	(iy+NVM.rest_cnt), a
 	; Set stack pointer
 	push	iy
@@ -148,8 +149,8 @@ nvm_context_copy:
 	ld	bc, NVMCONTEXT.len
 	ldir
 	pop	hl
+	pcm_service
 	ret
-
 
 ; b = count
 ; iy = NVMOPN head
@@ -172,7 +173,6 @@ nvm_poll_opn:
 	pop	bc
 	djnz	.loop
 	ret
-
 
 ; b = count
 ; iy = NVMPSG head
@@ -821,6 +821,9 @@ nvm_opn_portamento:
 ; iy = channel struct
 ; if a key is pending, handles key off/on cycle.
 nvmopn_update_output:
+	ld	a, (iy+NVM.status)
+	and	a
+	ret	m  ; return if muted.
 	ld	a, (iy+NVMOPN.key_pending)
 	or	a
 	jr	z, .express_freq_sub
