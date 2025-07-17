@@ -22,7 +22,7 @@ $(WRKDIR)/$(PRGNAME).o:
 .PHONY: $(OUTDIR)/$(PRGNAME).bin
 $(OUTDIR)/$(PRGNAME).bin: $(WRKDIR)/$(PRGNAME).o
 	mkdir -p $(@D)
-	$(P2BIN) $< $@ -r \$$-0x01FFF
+	$(P2BIN) $< $@
 
 .PHONY: clean
 clean:
