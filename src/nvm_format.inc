@@ -78,8 +78,8 @@ NVM_PAN      = 3*13
 NVM_PMS      = 3*14
 ; Set AMS
 NVM_AMS      = 3*15
-; Set arbitrary FM register  +2 bytes
-NVM_OPN_REG  = 3*16
+; Set LFO
+NVM_LFO      = 3*16
 ; Stop the channel.
 NVM_STOP     = 3*17
 ; Note off
@@ -94,6 +94,8 @@ NVM_PCMMODE  = 3*21
 NVM_PCMPLAY  = 3*22
 ; Stop PCM playback.
 NVM_PCMSTOP  = 3*23
+; Set arbitrary FM register  +2 bytes
+NVM_OPN_REG  = 3*24
 
 ; The note instructions allow the low nybble to be used as an offset into the
 ; frequency table after masking with 1Fh.
@@ -204,12 +206,20 @@ nPanR macro
 	nPan OPN_PAN_R
 	endm
 
-nPms macro pmsval
+nPms macro pmsval=0
 	db	NVM_PMS, ((pmsval)&07h)<<OPN_PMS_SHIFT
 	endm
 
-nAms macro amsval
+nAms macro amsval=0
 	db	NVM_AMS, ((amsval)&03h)<<OPN_AMS_SHIFT
+	endm
+
+nLfo macro lfoval
+	db	NVM_LFO, 08h | lfoval
+	endm
+
+nLfoOff	macro
+	nLfo	0
 	endm
 
 nOpnReg macro regno, regval

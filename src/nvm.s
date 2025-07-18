@@ -246,7 +246,7 @@ nvm_exec:
 	jp	nvm_op_pan      ; 13
 	jp	nvm_op_pms      ; 14
 	jp	nvm_op_ams      ; 15
-	jp	nvm_op_opn_reg  ; 16
+	jp	nvm_op_lfo      ; 16
 	jp	nvm_op_stop     ; 17
 	jp	nvm_op_note_off ; 18
 	jp	nvm_op_slide    ; 19
@@ -254,6 +254,7 @@ nvm_exec:
 	jp	nvm_op_pcmmode  ; 21
 	jp	nvm_op_pcmplay  ; 22
 	jp	nvm_op_pcmstop  ; 23
+	jp	nvm_op_opn_reg  ; 24
 
 
 ; ------------------------------------------------------------------------------
@@ -467,14 +468,11 @@ nvm_op_ams:      ; 15
 	and	a, 0CFh  ; remove ams bits
 	jr	nvm_op_pan_commit_a
 
-nvm_op_opn_reg:  ; 16
-	call	opn_set_base_de_sub
-	add	a, (hl)
-	inc	hl
-	ld	(de), a
-	inc	de
+nvm_op_lfo:      ; 15
+	ld	a, OPN_REG_LFO
+	ld	(OPN_ADDR0), a  ; addr
 	ld	a, (hl)
-	ld	(de), a
+	ld	(OPN_DATA0), a  ; data
 	inc	hl
 	jp	nvm_exec.instructions_from_hl
 
@@ -540,6 +538,17 @@ nvm_op_pcmplay:  ; 22
 
 nvm_op_pcmstop:  ; 23
 	pcm_poll_disable
+	jp	nvm_exec.instructions_from_hl
+
+nvm_op_opn_reg:  ; 24
+	call	opn_set_base_de_sub
+	add	a, (hl)
+	inc	hl
+	ld	(de), a
+	inc	de
+	ld	a, (hl)
+	ld	(de), a
+	inc	hl
 	jp	nvm_exec.instructions_from_hl
 
 ; ------------------------------------------------------------------------------
