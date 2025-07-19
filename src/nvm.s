@@ -4,30 +4,8 @@
 ;
 ; ------------------------------------------------------------------------------
 nvm_init:
-	; The OPN channels
-	ld	de, NVMOPN.len
-
-	ld	hl, .opn_channel_id_tbl
-	ld	iy, NvmOpnBgm
-	ld	b, OPN_BGM_CHANNEL_COUNT
-	call	.grp_init_sub
-
-	ld	hl, .opn_channel_id_tbl
-	ld	iy, NvmOpnSfx
-	ld	b, OPN_SFX_CHANNEL_COUNT
-	call	.grp_init_sub
-
-	; The PSG channels
-	ld	de, NVMPSG.len
-	ld	hl, .psg_channel_id_tbl
-	ld	b, PSG_BGM_CHANNEL_COUNT
-	ld	iy, NvmPsgBgm
-	call	.grp_init_sub
-
-	ld	hl, .psg_channel_id_tbl
-	ld	b, PSG_SFX_CHANNEL_COUNT
-	ld	iy, NvmPsgSfx
-	call	.grp_init_sub
+	call	nvm_bgm_channels_init
+	call	nvm_sfx_channels_init
 	; All buffers start at UserBuffer. It is expected that SFX and PCM are
 	; set once, while BGM can be exchanged. It's also okay to omit SFX and
 	; PCM loads.
@@ -41,23 +19,46 @@ nvm_init:
 	ld	(SfxContext+NVMCONTEXT.global_volume), a
 	ret
 
-.opn_channel_id_tbl:
+nvm_opn_channel_id_tbl:
 	db	0, 1, 2, 4, 5, 6  ; bgm
-.psg_channel_id_tbl:
+nvm_psg_channel_id_tbl:
 	db	80h, 0A0h, 0C0h     ; bgm
 
+nvm_bgm_channels_init:
+	ld	de, NVMOPN.len
+	ld	hl, nvm_opn_channel_id_tbl
+	ld	iy, NvmOpnBgm
+	ld	b, OPN_BGM_CHANNEL_COUNT
+	call	nvm_channel_grp_init_sub
+	ld	de, NVMPSG.len
+	ld	hl, nvm_psg_channel_id_tbl
+	ld	b, PSG_BGM_CHANNEL_COUNT
+	ld	iy, NvmPsgBgm
+	jr	nvm_channel_grp_init_sub
+
+nvm_sfx_channels_init:
+	ld	de, NVMOPN.len
+	ld	hl, nvm_opn_channel_id_tbl
+	ld	iy, NvmOpnSfx
+	ld	b, OPN_SFX_CHANNEL_COUNT
+	call	nvm_channel_grp_init_sub
+	ld	de, NVMPSG.len
+	ld	hl, nvm_psg_channel_id_tbl
+	ld	b, PSG_SFX_CHANNEL_COUNT
+	ld	iy, NvmPsgSfx
+	jr	nvm_channel_grp_init_sub
 
 ; hl = channel id assignment tbl
 ; iy = start of block
 ; de = struct offset per
 ; b = count
-.grp_init_sub:
+nvm_channel_grp_init_sub:
 -:
+	call	nvm_reset_sub
+
 	ld	a, (hl)
 	inc	hl
 	ld	(iy+NVM.channel_id), a
-
-	call	nvm_reset_sub
 
 	add	iy, de
 	djnz	-
@@ -71,8 +72,12 @@ nvm_reset_sub:
 	ld	(iy+NVM.status), a      ; inactive
 	ld	(iy+NVM.mute), a        ; unmuted
 	ld	(iy+NVM.portamento), a  ; no portamento
-;	ld	(iy+NVM.vib_mag), a     ; no vibrato
-;	ld	(iy+NVM.vib_cnt), a     ; v counter reset
+
+	ld	(iy+NVM.vib_phase), a
+	ld	(iy+NVM.vib_cnt), a
+	ld	(iy+NVM.vib_mag), a
+	ld	(iy+NVM.vib_speed), a
+
 	ld	(iy+NVM.rest_cnt), a
 	ld	(iy+NVM.transpose), a   ; no transpose
 	ld	(iy+NVM.volume), a      ; no attenuation
@@ -83,6 +88,13 @@ nvm_reset_sub:
 	add	hl, de
 	ld	(iy+NVM.stack_ptr+1), h
 	ld	(iy+NVM.stack_ptr), l
+	; As well as loop stack ptr
+	push	iy
+	pop	hl
+	ld	de, NVM.loop_stack-1  ; points right before it
+	add	hl, de
+	ld	(iy+NVM.loop_stack_ptr+1), h
+	ld	(iy+NVM.loop_stack_ptr), l
 	; channel default
 	ld	(iy+NVM.rest_val), NVM_REST_DEFAULT
 	exx
@@ -117,6 +129,7 @@ nvm_bgm_reset:
 	; TODO: PSG shit
 	add	iy, de
 	djnz	-
+
 	call	psg_reset
 	jp	opn_reset
 
@@ -155,7 +168,7 @@ nvm_poll:
 	jr	z, .next_chan
 	call	nvm_exec
 	pcm_service
-	call	nvm_portamento
+	call	nvm_pitch
 	pcm_service
 	call	nvm_update_output
 .next_chan:
@@ -195,7 +208,6 @@ nvm_exec:
 	; If A is >= 80h, it's a note, and is handled differently.
 	and	a
 	jp	m, nvm_op_note
-.dispatch_opn:
 	; Else, it's a control instruction.
 	jptbl_dispatch
 
@@ -288,24 +300,30 @@ nvm_op_ret:      ;  2
 nvm_op_loopset:  ;  3
 	; Get loop count
 	ld	a, (hl)
-	ld	(iy+NVM.loop_cnt), a
 	inc	hl
-	; Store address in the loop pointer field
-	ld	(iy+NVM.loop_ptr+1), h
-	ld	(iy+NVM.loop_ptr), l
+	; Advance loop stack ptr and set count.
+	ld	d, (iy+NVM.loop_stack_ptr+1)
+	ld	e, (iy+NVM.loop_stack_ptr)
+	inc	de
+	ld	(iy+NVM.loop_stack_ptr+1), d
+	ld	(iy+NVM.loop_stack_ptr), e
+	ld	(de), a
 	jp	nvm_exec.instructions_from_hl
 
 nvm_op_loopend:  ;  4
-	ld	a, (iy+NVM.loop_cnt)
+	ld	d, (iy+NVM.loop_stack_ptr+1)
+	ld	e, (iy+NVM.loop_stack_ptr)
+	ld	a, (de)
 	dec	a
-	ld	(iy+NVM.loop_cnt), a
-	jp	z, nvm_exec.instructions_from_hl
-	; jump back to loop
-	ld	a, (iy+NVM.loop_ptr+1)
-	ld	(iy+NVM.pc+1), a
-	ld	a, (iy+NVM.loop_ptr)
-	ld	(iy+NVM.pc), a
-	jp	nvm_exec.instructions_from_pc
+	ld	(de), a
+	jr	nz, nvm_op_jump  ; Branch backwards
+	; Bump back loop stack ptr and proceed.
+	dec	de
+	ld	(iy+NVM.loop_stack_ptr+1), d
+	ld	(iy+NVM.loop_stack_ptr), e
+	inc	hl
+	inc	hl
+	jp	nvm_exec.instructions_from_hl
 
 nvm_op_tempo:    ;  5
 	ld	ix, OPN_BASE
@@ -766,12 +784,12 @@ nvmopn_freq_tbl:
 ;
 ; ------------------------------------------------------------------------------
 
-nvm_portamento:
+nvm_pitch:
 	ld	a, (iy+NVM.channel_id)
 	and	a
-	jp	p, nvmopn_portamento
+	jp	p, nvmopn_pitch
 
-nvmpsg_portamento:
+nvmpsg_pitch:
 	; TODO
 	ld	a, (iy+NVMPSG.tgt_period+1)
 	ld	(iy+NVMPSG.now_period+1), a
@@ -779,7 +797,7 @@ nvmpsg_portamento:
 	ld	(iy+NVMPSG.now_period), a
 	ret
 
-nvmopn_portamento:
+nvmopn_pitch:
 	ld	a, (iy+NVM.portamento)
 	or	a
 	jr	nz, .port_change

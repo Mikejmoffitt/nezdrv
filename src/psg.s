@@ -1,9 +1,9 @@
 psg_reset:
 	ld	hl, PSG
 	ld	(hl), 09Fh  ; mute channel 0
-	ld	(hl), 09Fh  ; mute channel 0
-	ld	(hl), 09Fh  ; mute channel 0
-	ld	(hl), 09Fh  ; mute channel 0
+	ld	(hl), 0BFh  ; mute channel 1
+	ld	(hl), 0DFh  ; mute channel 2
+	ld	(hl), 0FFh  ; mute channel 3
 	ret
 
 
@@ -31,13 +31,13 @@ psg_calc_period:
 	jr	.oct5
 	jr	.oct6
 	jr	.oct7
+; what is an octave adjustment? a miserable pile of right shifts
 .oct7:
 	xor	a
 	jr	.oct7_a
 .oct6:
 	xor	a
 	jr	.oct6_a
-
 .oct5:
 	xor	a
 	add	hl, hl

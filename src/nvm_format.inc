@@ -51,9 +51,9 @@ NVM_JUMP     = 3*0
 NVM_CALL     = 3*1
 ; Return
 NVM_RET      = 3*2
-; Set loop point (+ 1 byte for count)
+; Advance loop stack and set loop point (+ 1 byte for count)
 NVM_LOOPSET  = 3*3
-; End loop point (decrement and jump to loop ptr if nonzero)
+; End loop point (decrement and branch if loop counter is nonzero)
 NVM_LOOPEND  = 3*4
 ; Set timer B value +1 byte
 NVM_TEMPO    = 3*5
@@ -101,6 +101,8 @@ NVM_TRN      = 3*25
 NVM_TRN_ADD  = 3*26
 ; Subtract from transposition
 NVM_TRN_SUB  = 3*27
+; Set vibrato.
+NVM_VIB      = 3*28
 
 ; The note instructions allow the low nybble to be used as an offset into the
 ; frequency table after masking with 1Fh.
@@ -139,7 +141,7 @@ NVM_NOTE_NO_KEY_ON_FLAG = 40h
 ; Internal macros
 ;
 NRelOffsCalc macro lbl
-	dw	lbl-$-1
+	dw	(lbl)-$-1
 	endm
 
 ;
@@ -164,8 +166,9 @@ nLpSet macro lpcount
 	db	NVM_LOOPSET, lpcount
 	endm
 
-nLpEnd macro
+nLpEnd macro lbl
 	db	NVM_LOOPEND
+	NRelOffsCalc lbl
 	endm
 
 nTempo macro tval

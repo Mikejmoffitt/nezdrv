@@ -18,7 +18,7 @@ TOTAL_BGM_CHANNEL_COUNT = OPN_BGM_CHANNEL_COUNT+PSG_BGM_CHANNEL_COUNT
 TOTAL_SFX_CHANNEL_COUNT = OPN_SFX_CHANNEL_COUNT+PSG_SFX_CHANNEL_COUNT
 TOTAL_CHANNEL_COUNT = TOTAL_BGM_CHANNEL_COUNT+TOTAL_SFX_CHANNEL_COUNT
 
-NVM_STACK_DEPTH = 8
+NVM_STACK_DEPTH = 4
 ; Channel status
 NVM_STATUS_INACTIVE = 0
 NVM_STATUS_ACTIVE = 1
@@ -44,16 +44,21 @@ channel_id:     ds 1
 pc:             ds 2
 stack_ptr:      ds 2
 stack:          ds NVM_STACK_DEPTH*2
-; TODO: loop stack
-loop_ptr:       ds 2
-loop_cnt:       ds 1
+loop_stack_ptr: ds 2
+loop_stack:     ds NVM_STACK_DEPTH
 rest_val:       ds 1
 rest_cnt:       ds 1
 
+; Vibrato
+vib_phase:      ds 1  ; counting up or down
+vib_cnt:        ds 1  ; current value
+vib_mag:        ds 1  ; strength
+vib_speed:      ds 1  ; how much to increment by
+
 ; Note settings
 transpose:      ds 1  ; in semitones
-volume:         ds 1  ; really attenuation, summed with tl on key-on.
-octave:         ds 1  ; stored as multiples of 8 to match block register.
+volume:         ds 1  ; really attenuation, summed with tl (opn) on key-on.
+octave:         ds 1
 portamento:     ds 1  ; rate of change for target_freq. If 0, it is instant.
 
 ; Instrument pointer (be it OPN patch or PSG macro)
@@ -66,19 +71,19 @@ NVM endstruct
 NVMOPN struct
 nvmbase:        ds NVM.len
 
+; Key down stuff
+key_pending:    ds 1  ; if true, awaiting a key on event.
+
 ; Instrument/Patch
 tl_conoffs:     ds 1  ; pre-multiplied jr table offset for tl setting (patch con * 2)
 tl:             ds 4  ; TL values from when instrument was set.
 pan:            ds 1  ; pan/ams/pms register.
 
-; Portamento state (OPN)
+; Portamento state
 now_freq:       ds 2
 now_block:      ds 1  ; if negative, immediately adopts the target.
 tgt_freq:       ds 2
 tgt_block:      ds 1
-
-; Key down stuff
-key_pending:    ds 1  ; if true, awaiting a key on event.
 
 pad:            ds 1
 
@@ -89,9 +94,14 @@ NVMOPN endstruct
 ;
 NVMPSG struct
 nvmbase:        ds NVM.len
+
 key_on:         ds 1
+
+; Amplitude Envelope
 env_ptr:        ds 2  ; copied from instrument on key down.
 env_loop_ptr:   ds 2
+
+; Portamento state
 now_period:     ds 2
 tgt_period:     ds 2
 pad:            ds 5
