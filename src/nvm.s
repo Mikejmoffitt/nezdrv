@@ -12,6 +12,7 @@ nvm_init:
 	ld	b, OPN_BGM_CHANNEL_COUNT
 	call	.grp_init_sub
 
+	ld	hl, .opn_channel_id_tbl
 	ld	iy, NvmOpnSfx
 	ld	b, OPN_SFX_CHANNEL_COUNT
 	call	.grp_init_sub
@@ -23,6 +24,7 @@ nvm_init:
 	ld	iy, NvmPsgBgm
 	call	.grp_init_sub
 
+	ld	hl, .psg_channel_id_tbl
 	ld	b, PSG_SFX_CHANNEL_COUNT
 	ld	iy, NvmPsgSfx
 	call	.grp_init_sub
@@ -41,10 +43,8 @@ nvm_init:
 
 .opn_channel_id_tbl:
 	db	0, 1, 2, 4, 5, 6  ; bgm
-	db	0, 1, 2           ; sfx
 .psg_channel_id_tbl:
 	db	80h, 0A0h, 0C0h     ; bgm
-	db	80h, 0A0h, 0C0h     ; sfx
 
 
 ; hl = channel id assignment tbl
@@ -117,6 +117,7 @@ nvm_bgm_reset:
 	; TODO: PSG shit
 	add	iy, de
 	djnz	-
+	call	psg_reset
 	jp	opn_reset
 
 ; ------------------------------------------------------------------------------
@@ -418,7 +419,14 @@ nvm_op_inst:     ;
 	jp	nvm_exec.instructions_from_hl
 
 nvm_op_vol:      ; 12
-	ld	a, (hl)
+	ld	b, 7Fh
+	ld	a, (iy+NVM.channel_id)
+	and	a
+	jp	p, +
+	ld	b, 0Fh
++:
+	ld	a, b
+	and	a, (hl)
 	ld	(iy+NVM.volume), a
 	inc	hl
 	jp	nvm_exec.instructions_from_hl
@@ -875,6 +883,11 @@ nvm_update_output:
 nvmpsg_update_output:
 	call	nvmpsg_env_sub
 	xor	0Fh  ; convert volume to attenuation.
+	add	a, (iy+NVM.volume)
+	cp	10h
+	jr	c, +
+	ld	a, 0Fh
++:
 	or	a, (iy+NVM.channel_id)  ; register
 	or	a, 10h  ; volume command.
 	ld	(PSG), a

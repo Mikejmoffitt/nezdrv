@@ -50,11 +50,11 @@ main:
 	ld	b, OPN_SFX_CHANNEL_COUNT
 	ld	iy, NvmOpnSfx
 	ld	de, NVMOPN.len
-	;call	nvm_poll
+	call	nvm_poll
 	ld	b, PSG_SFX_CHANNEL_COUNT
 	ld	iy, NvmPsgSfx
 	ld	de, NVMPSG.len
-	;call	nvm_poll
+	call	nvm_poll
 
 	; Update mute status of BGM channels
 	ld	a, (NvmOpnSfx+NVM.status+NVMOPN.len*0)

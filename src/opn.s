@@ -77,22 +77,10 @@ opn_set_base_de_sub:
 	opn_set_base_de
 	ret
 
-; Writes address register using c as the block offset
-; ix = OPN_BASE
-;opn_set_datwalk	macro	regno
-;	ld	a, regno
-;	call	.write_sub
-;	endm
-
-;opn_set_datwalk_4op	macro	regno
-;	ld	a, regno
-;	call	.write_4op_sub
-;	endm
-
 ; hl = patch data
 ; a = channel reg offset (0 - 6; '3' and '7' do not exist)
 opn_set_patch:
-	opn_set_base_de  ; Set up ix with OPN_BASE or OPN_BASE2 by channel number.
+	call	opn_set_base_de_sub
 
 	; Patch data is just the register data in a row, so scoop it all.
 	ld	c, a
@@ -100,7 +88,7 @@ opn_set_patch:
 	add	a, c
 	call	.write_sub
 	; Now scoop all the reg data
-	ld	b, 1+(7*4)  ; fb_con plus 4op patch data.
+	ld	b, 7*4  ; 4op patch data.
 	ld	a, OPN_REG_DT_MUL
 	add	a, c
 .patchdata_loop:
@@ -112,6 +100,7 @@ opn_set_patch:
 	ret
 
 ; a = reg
+; (de) = opn base
 ; (hl) = data
 .write_sub:
 	ld	(de), a
