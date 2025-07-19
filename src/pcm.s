@@ -20,7 +20,7 @@ pcm_poll_enable macro
 	endm
 
 ; The technique here is cribbed from Echo. Thanks
-	org	08h
+	align	08h
 pcm_poll:
 	; set to C9h for ret if PCM is not playing and D0h for ret NC when in use.
 	ret

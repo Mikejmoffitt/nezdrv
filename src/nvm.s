@@ -43,8 +43,8 @@ nvm_init:
 	db	0, 1, 2, 4, 5, 6  ; bgm
 	db	0, 1, 2           ; sfx
 .psg_channel_id_tbl:
-	db	00h, 20h, 40h     ; bgm
-	db	00h, 20h, 40h     ; sfx
+	db	80h, 0A0h, 0C0h     ; bgm
+	db	80h, 0A0h, 0C0h     ; sfx
 
 
 ; hl = channel id assignment tbl
@@ -74,6 +74,8 @@ nvm_reset_sub:
 ;	ld	(iy+NVM.vib_mag), a     ; no vibrato
 ;	ld	(iy+NVM.vib_cnt), a     ; v counter reset
 	ld	(iy+NVM.rest_cnt), a
+	ld	(iy+NVM.transpose), a   ; no transpose
+	ld	(iy+NVM.volume), a      ; no attenuation
 	; Set stack pointer
 	push	iy
 	pop	hl
@@ -83,8 +85,6 @@ nvm_reset_sub:
 	ld	(iy+NVM.stack_ptr), l
 	; channel default
 	ld	(iy+NVM.rest_val), NVM_REST_DEFAULT
-	; Default highest volume.
-	ld	(iy+NVM.volume), 7Fh
 	exx
 	ret
 
@@ -125,18 +125,6 @@ nvm_bgm_reset:
 ;
 ; ------------------------------------------------------------------------------
 
-nvm_context_iter_opn_sfx_set:
-	call	nvm_context_sfx_set
-	ld	b, OPN_SFX_CHANNEL_COUNT
-	ld	iy, NvmOpnSfx
-	ret
-
-nvm_context_iter_opn_bgm_set:
-	call	nvm_context_bgm_set
-	ld	b, OPN_BGM_CHANNEL_COUNT
-	ld	iy, NvmOpnBgm
-	ret
-
 nvm_context_sfx_set:
 	push	hl
 	ld	hl, SfxContext
@@ -154,44 +142,24 @@ nvm_context_copy:
 
 ; b = count
 ; iy = NVMOPN head
-nvm_poll_opn:
+; de = struct size
+nvm_poll:
 .loop:
 	push	bc
+	push	de
+	pcm_service
 	; Skip inactive channels
 	ld	a, (iy+NVM.status)
 	and	a  ; NVM_STATUS_INACTIVE?
 	jr	z, .next_chan
 	call	nvm_exec
 	pcm_service
-	call	nvm_opn_portamento
+	call	nvm_portamento
 	pcm_service
-	call	nvmopn_update_output
+	call	nvm_update_output
 .next_chan:
-	ld	de, NVMOPN.len
+	pop	de
 	add	iy, de
-	pcm_service
-	pop	bc
-	djnz	.loop
-	ret
-
-; b = count
-; iy = NVMPSG head
-nvm_poll_psg:
-.loop:
-	push	bc
-	; Skip inactive channels
-	ld	a, (iy+NVM.status)
-	and	a  ; NVM_STATUS_INACTIVE?
-	jr	z, .next_chan
-	call	nvm_exec
-	pcm_service
-;	call	nvm_opn_portamento
-;	pcm_service
-;	call	nvmopn_update_output
-.next_chan:
-	ld	de, NVMPSG.len
-	add	iy, de
-	pcm_service
 	pop	bc
 	djnz	.loop
 	ret
@@ -255,7 +223,9 @@ nvm_exec:
 	jp	nvm_op_pcmplay  ; 22
 	jp	nvm_op_pcmstop  ; 23
 	jp	nvm_op_opn_reg  ; 24
-
+	jp	nvm_op_trn      ; 25
+	jp	nvm_op_trn_add  ; 26
+	jp	nvm_op_trn_sub  ; 27
 
 ; ------------------------------------------------------------------------------
 
@@ -375,16 +345,16 @@ nvm_op_oct_commit_a:
 
 nvm_op_oct_up:   ;  9
 	ld	a, (iy+NVM.octave)
-	cp	7*8  ; octave already == 7?
+	cp	7  ; octave already == 7?
 	jp	nc, nvm_exec.instructions_from_hl
-	add	a, 8
+	inc	a
 	jr	nvm_op_oct_commit_a
 
 nvm_op_oct_down: ; 10
 	ld	a, (iy+NVM.octave)
 	and	a  ; octave already at 0?
 	jp	z, nvm_exec.instructions_from_hl
-	sub	a, 8
+	dec	a
 	jr	nvm_op_oct_commit_a
 
 nvm_op_inst:     ;
@@ -397,10 +367,23 @@ nvm_op_inst:     ;
 	add	hl, de  ; += instrument id offset
 	; de take the patch address, also stored in the ch state
 	ld	e, (hl)
-	ld	(iy+NVMOPN.patch_ptr+0), e
+	ld	(iy+NVM.instrument_ptr+0), e
 	inc	hl
 	ld	d, (hl)
-	ld	(iy+NVMOPN.patch_ptr+1), d
+	ld	(iy+NVM.instrument_ptr+1), d
+	; only OPN needs to talk to hardware here.
+	ld	a, (iy+NVM.channel_id)
+	and	a   ; test for PSG (channel id >= 80h)
+	jp	p, .opn_apply
+	; PSG just needs to set the envelope ptr.
+	ld	a, (iy+NVM.instrument_ptr+0)
+	ld	(iy+NVMPSG.env_ptr+0), a
+	ld	a, (iy+NVM.instrument_ptr+1)
+	ld	(iy+NVMPSG.env_ptr+1), a
+	pop	hl
+	jp	nvm_exec.instructions_from_hl
+
+.opn_apply:
 	; pull con data.
 	IF	OPNPATCH.con_fb == 0  ; this is how I avoid self-owning later
 	ld	a, (de)  ; OPNPATCh begins with con_fb
@@ -481,11 +464,19 @@ nvm_op_stop:     ; 18
 	ret
 
 nvm_op_note_off: ; 18
+	ld	a, (iy+NVM.channel_id)
+	and	a
+	jp	p, .opn
+	xor	a
+	ld	(iy+NVMPSG.key_on), a  ; let envelope take care of the rest
+	jr	.done
+.opn:
 	ld	a, OPN_REG_KEYON
 	ld	(OPN_ADDR0), a  ; addr
 	ld	a, (iy+NVM.channel_id)
 	ld	(OPN_DATA0), a  ; data
 	ld	(iy+NVMOPN.now_block), 80h  ; Mark no portamento
+.done:
 	jp	nvm_exec.instructions_from_hl
 
 nvm_op_slide:    ; 19
@@ -551,6 +542,23 @@ nvm_op_opn_reg:  ; 24
 	inc	hl
 	jp	nvm_exec.instructions_from_hl
 
+nvm_op_trn:      ; 25
+	ld	a, (hl)
+.set:
+	ld	(iy+NVM.transpose), a
+	inc	hl
+	jp	nvm_exec.instructions_from_hl
+
+nvm_op_trn_add:   ; 26
+	ld	a, (iy+NVM.transpose)
+	add	a, (hl)
+	jr	nvm_op_trn.set
+
+nvm_op_trn_sub:   ; 27
+	ld	a, (iy+NVM.transpose)
+	sub	a, (hl)
+	jr	nvm_op_trn.set
+
 ; ------------------------------------------------------------------------------
 ;
 ; Notes
@@ -558,6 +566,12 @@ nvm_op_opn_reg:  ; 24
 ; ------------------------------------------------------------------------------
 
 nvm_opn_tlmod_sub:
+	;
+	; Prepare OPN offset
+	;
+	ld	a, (iy+NVM.channel_id)
+	opn_set_base_de
+	ld	c, a  ; nvm_opn_tlmod_sub relies on this.
 
 tlmod macro opno
 	ld	a, (CurrentContext+NVMCONTEXT.global_volume)
@@ -605,45 +619,67 @@ tlmod macro opno
 nvm_op_note:
 	ld	b, a  ; back up the note data in b
 
-	;
-	; Prepare OPN offset
-	;
 	ld	a, (iy+NVM.channel_id)
-	opn_set_base_de
-	ld	c, a
+	and	a  ; test if PSG (id >= 80h)
+	jp	p, nvmopn_op_note
 
-	;
-	; Mark pending key press (if applicable)
-	;
-	ld	a, b
-	and	a, nvm_NOTE_NO_KEY_ON_FLAG
+nvmpsg_op_note:
+	and	a, 1Fh  ; just index
+	call	nvm_note_calc_transpose
+	ld	a, b    ; restore note
+	and	a, NVM_NOTE_NO_KEY_ON_FLAG
 	jr	nz, +
+	ld	a, (iy+NVM.instrument_ptr+0)
+	ld	(iy+NVMPSG.env_ptr+0), a
+	ld	a, (iy+NVM.instrument_ptr+1)
+	ld	(iy+NVMPSG.env_ptr+1), a
 	ld	a, 01h
-	ld	(iy+NVMOPN.key_pending), a
+	ld	(iy+NVMPSG.key_on), a
 +:
+	ld	a, b    ; restore note
+	exx  ; avoid pushing hl and bc
+	ld	c, (iy+NVM.octave)
+	call	psg_calc_period
+	ld	(iy+NVMPSG.tgt_period+1), h
+	ld	(iy+NVMPSG.tgt_period), l
+	exx
+	jp	nvm_op_note_setrest
 
-	;
+nvmopn_op_note:
+
 	; Volume modulation
-	;
-
 	call	nvm_opn_tlmod_sub
+
+	; key event set
+
+	; Mark pending key press (if applicable)
+	ld	a, b    ; restore note
+	and	a, NVM_NOTE_NO_KEY_ON_FLAG
+	xor	NVM_NOTE_NO_KEY_ON_FLAG
+	ld	(iy+NVMOPN.key_pending), a
 
 	;
 	; Set target octave and frequency.
 	;
 
-	; Adopt current octave setting (really, it's the block reg value).
-	ld	a, (iy+NVM.octave)
-	ld	(iy+NVMOPN.tgt_block), a
-
 	; Note lookup
 	ld	a, b    ; restore note
+	and	a, 1Fh  ; just index
+
+	call	nvm_note_calc_transpose
+	; a now holds usable note index, and c the octave.
+
+	; Turn C into block register value and adopt value.
+	or	a  ; clear carry
+	rl	c
+	rl	c
+	rl	c
+	ld	(iy+NVMOPN.tgt_block), c
+
 	exx  ; avoid pushing hl and bc
 
-
-;	push	hl      ; we'll need this later for rest processing.
-	ld	hl, .freq_tbl
-	and	a, 1Fh  ; index into freq table
+	; a now holds note modified by transposition
+	ld	hl, nvmopn_freq_tbl
 	ld	e, a    ; offset freq tbl index with de
 	ld	d, 00h
 	add	hl, de
@@ -653,9 +689,7 @@ nvm_op_note:
 	ld	a, (hl)
 	ld	(iy+NVMOPN.tgt_freq+1), a
 
-	;
 	; If note was off before, skip portamento.
-	;
 	ld	a, (iy+NVMOPN.now_block)
 	and	a
 	jp	p, +
@@ -666,21 +700,45 @@ nvm_op_note:
 	ld	a, (iy+NVMOPN.tgt_freq+1)
 	ld	(iy+NVMOPN.now_freq+1), a
 +:
-
-	;
-	; Optional rest duration byte
-	;
-;	pop	hl
 	exx
+
+nvm_op_note_setrest:
+	; Optional rest duration byte
 	ld	a, b
 	and	a, nvm_NOTE_REST_FLAG
 	jp	nz, nvm_op_rest
+
 	; Else just adopt the default rest value.
 	ld	a, (iy+NVM.rest_val)
 	ld	(iy+NVM.rest_cnt), a
 	jp	nvm_op_finished_yield
 
-.freq_tbl:
+; in:  a: note value index (raw note b & 1Fh)
+;     iy: nvm struct
+; out: a: updated note value
+;      c: effective octave
+nvm_note_calc_transpose:
+	; Apply transpose and set octave.
+	ld	c, (iy+NVM.octave)
+	add	a, (iy+NVM.transpose)
+	; if transpose has taken us out of range modify octave and continue
+.tpcheck:
+	and	a
+	jp	m, .tpbelow  ; gone below 0?
+	cp	(NVM_NOTE_LIM)&1Eh
+	jr	c, .tpok
+.tpabove:
+	sub	(NVM_NOTE_LIM)&1Eh
+	inc	c
+	jr	.tpcheck
+.tpbelow:
+	add	a, (NVM_NOTE_LIM)&1Eh
+	dec	c
+	jr	.tpcheck
+.tpok:
+	ret
+
+nvmopn_freq_tbl:
 	dw	OPN_NOTE_C
 	dw	OPN_NOTE_Cs
 	dw	OPN_NOTE_D
@@ -700,45 +758,23 @@ nvm_op_note:
 ;
 ; ------------------------------------------------------------------------------
 
-nvm_opn_port_read_tgt_freq_de macro
-	ld	a, (iy+NVMOPN.tgt_freq+1)
-	ld	d, a
-	ld	a, (iy+NVMOPN.tgt_freq)
-	ld	e, a
-	endm
+nvm_portamento:
+	ld	a, (iy+NVM.channel_id)
+	and	a
+	jp	p, nvmopn_portamento
 
-nvm_opn_port_write_tgt_freq_de macro
-	ld	a, d
-	ld	(iy+NVMOPN.tgt_freq+1), a
-	ld	a, e
-	ld	(iy+NVMOPN.tgt_freq), a
-	endm
+nvmpsg_portamento:
+	; TODO
+	ld	a, (iy+NVMPSG.tgt_period+1)
+	ld	(iy+NVMPSG.now_period+1), a
+	ld	a, (iy+NVMPSG.tgt_period)
+	ld	(iy+NVMPSG.now_period), a
+	ret
 
-nvm_opn_port_read_now_freq_hl macro
-	ld	a, (iy+NVMOPN.now_freq+1)
-	ld	h, a
-	ld	a, (iy+NVMOPN.now_freq)
-	ld	l, a
-	endm
-
-nvm_opn_port_write_now_freq_hl macro
-	ld	a, h
-	ld	(iy+NVMOPN.now_freq+1), a
-	ld	a, l
-	ld	(iy+NVMOPN.now_freq), a
-	endm
-
-nvm_opn_port_write_now_freq_de macro
-	ld	a, d
-	ld	(iy+NVMOPN.now_freq+1), a
-	ld	a, e
-	ld	(iy+NVMOPN.now_freq), a
-	endm
-
-nvm_opn_portamento:
+nvmopn_portamento:
 	ld	a, (iy+NVM.portamento)
 	or	a
-	jr	nz, .port_change ; TODO
+	jr	nz, .port_change
 	; Portamento of 0 = instant
 	ld	a, (iy+NVMOPN.tgt_freq)
 	ld	(iy+NVMOPN.now_freq), a
@@ -749,7 +785,9 @@ nvm_opn_portamento:
 	ret
 
 .port_change:
-	nvm_opn_port_read_now_freq_hl
+	ld	d, (iy+NVMOPN.now_freq+1)
+	ld	e, (iy+NVMOPN.now_freq)
+	ex	hl, de
 	; Compare target block to now
 	ld	a, (iy+NVMOPN.now_block)
 	ld	b, (iy+NVMOPN.tgt_block)
@@ -786,18 +824,19 @@ nvm_opn_portamento:
 	ld	de, 10000h-OPN_NOTE_C  ; subtraction of OPN_NOTE_C
 	ld	a, (iy+NVMOPN.now_block)
 	add	a, 08h
-.new_block_mask_and_set
+.new_block_mask_and_set:
 	and	3Fh  ; TODO: Remove? is there any harm to those upper bits?
 	ld	(iy+NVMOPN.now_block), a
 	add	hl, de
 +:
-	; Write back the freq change and exit.
+	; Write back the freq (hl) and exit.
 .now_freq_hl_commit:
-	nvm_opn_port_write_now_freq_hl
-	ret
+	ex	de, hl
+	jr	.now_freq_de_commit
 
 .target_block_same:
-	nvm_opn_port_read_tgt_freq_de
+	ld	d, (iy+NVMOPN.tgt_freq+1)
+	ld	e, (iy+NVMOPN.tgt_freq)
 	; Is the target frequency higher?
 	compare_hl_r16 de
 	ret	z  ; same block, same freq. get outta here
@@ -810,7 +849,8 @@ nvm_opn_portamento:
 	jr	nc, .now_freq_hl_commit  ; nope
 	; Adopt target and get out.
 .now_freq_de_commit:
-	nvm_opn_port_write_now_freq_de
+	ld	(iy+NVMOPN.now_freq+1), d
+	ld	(iy+NVMOPN.now_freq), e
 	ret
 .target_freq_higher:
 	ld	a, (iy+NVM.portamento)
@@ -823,9 +863,92 @@ nvm_opn_portamento:
 
 ; ------------------------------------------------------------------------------
 ;
-; Key On/Off and Frequency Output (OPN)
+; Key On/Off and Frequency Output
 ;
 ; ------------------------------------------------------------------------------
+
+nvm_update_output:
+	ld	a, (iy+NVM.channel_id)
+	and	a
+	jp	p, nvmopn_update_output
+
+nvmpsg_update_output:
+	call	nvmpsg_env_sub
+	xor	0Fh  ; convert volume to attenuation.
+	or	a, (iy+NVM.channel_id)  ; register
+	or	a, 10h  ; volume command.
+	ld	(PSG), a
+	; Convert frequency data to register data
+	or	a, (iy+NVM.channel_id)  ; register
+	ld	h, (iy+NVMPSG.now_period+1)
+	ld	l, (iy+NVMPSG.now_period+0)
+	; period cmd and low data
+	ld	a, l
+	and	0Fh
+	or	(iy+NVM.channel_id)
+	ld	b, a  ; save for writing a little later
+	; high data
+	ld	a, l
+	rept	4
+	srl	h
+	rra
+	endm
+	ld	l, a
+	and	3Fh
+	; The writes are spaced this way to prevent strange sounds
+	ld	hl, PSG
+	ld	(hl), b  ; cmd and low data
+	ld	(hl), a  ; high data
+	ret
+
+; returns in A the attenuation value to set.
+nvmpsg_env_sub:
+	; Step envelope.
+	ld	d, (iy+NVMPSG.env_ptr+1)
+	ld	e, (iy+NVMPSG.env_ptr)
+.env_interpret:
+	ld	a, (de)
+	and	a
+	jp	p, .env_value
+	; Envelope instructions.
+	inc	a
+	jp	p, .env_op_end
+	inc	a
+	jp	p, .env_op_lpset
+	inc	a
+	jp	p, .env_op_lpend
+.env_op_end:
+	; just scoot back and reinterpret
+	dec	de
+	jr	.env_interpret
+.env_op_lpset:
+	inc	de
+	ld	(iy+NVMPSG.env_loop_ptr+1), d
+	ld	(iy+NVMPSG.env_loop_ptr), e
+	jr	.env_interpret
+.env_op_lpend:
+	; If key is not down, let the macro continue.
+	ld	a, (iy+NVMPSG.key_on)
+	and	a
+	jr	nz, +
+	inc	de  ; step past lpend.
+	jr	.env_interpret
++:
+	ld	d, (iy+NVMPSG.env_loop_ptr+1)
+	ld	e, (iy+NVMPSG.env_loop_ptr)
+	ld	(iy+NVMPSG.env_ptr+1), d
+	ld	(iy+NVMPSG.env_ptr), e
+	jr	.env_interpret
+
+.env_value:
+	; we will just return A.
+.env_step_ptr:
+	inc	de
+	ld	(iy+NVMPSG.env_ptr+1), d
+	ld	(iy+NVMPSG.env_ptr), e
+	ret
+
+
 
 ; iy = channel struct
 ; if a key is pending, handles key off/on cycle.
@@ -834,7 +957,7 @@ nvmopn_update_output:
 	and	a
 	ret	m  ; return if muted.
 	ld	a, (iy+NVMOPN.key_pending)
-	or	a
+	and	a
 	jr	z, .express_freq_sub
 	ret	z
 	; First key off.
@@ -885,3 +1008,6 @@ nvmopn_update_output:
 	ld	a, (iy+NVMOPN.now_freq)
 	ld	(de), a
 	ret
+
+
+

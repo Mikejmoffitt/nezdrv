@@ -155,8 +155,7 @@ nez_bgm_set_timers_sub:
 ;
 nez_load_standard_rebase_sub:
 	call	nez_rebase_tracks
-	call	nez_rebase_instruments
-	jr	nez_rebase_macros
+	jr	nez_rebase_instruments
 
 ; de = NEZINFO offset
 ; returns head in hl
@@ -174,12 +173,8 @@ nez_rebase_instruments:
 	ld	de, NEZINFO.instrument_list_offs
 	call	nez_get_list_head_sub
 	ld	(CurrentContext+NVMCONTEXT.instrument_list_ptr), hl
-	jr	nez_rebase_relative_list_sub
-
-nez_rebase_macros:
-	ld	de, NEZINFO.macro_list_offs
-	call	nez_get_list_head_sub
-	jr	nez_rebase_relative_list_sub
+	; fall-through to nez_rebase_relative_list_sub
+	;jr	nez_rebase_relative_list_sub
 
 
 ; rebases a relative offset list against the current buffer (nullptr-terminated).

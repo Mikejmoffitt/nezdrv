@@ -25,14 +25,13 @@ nPcmRateEncode macro pcmrate
 	db	((pcmrate)&03h)
 	endm
 
-nTrackHeader macro endptr, pcmrate, temporate, tracklist, instrumentlist, macrolist
+nTrackHeader macro endptr, pcmrate, temporate, tracklist, instrumentlist
 NEZ_TRACK_BASE := $
 	nTrackRelPtr endptr
 	nPcmRateEncode pcmrate
 	db	temporate
 	nTrackRelPtr tracklist
 	nTrackRelPtr instrumentlist
-	nTrackRelPtr macrolist
 	endm
 
 nPcmDef macro filename
@@ -96,6 +95,12 @@ NVM_PCMPLAY  = 3*22
 NVM_PCMSTOP  = 3*23
 ; Set arbitrary FM register  +2 bytes
 NVM_OPN_REG  = 3*24
+; Set transposition for the channel.
+NVM_TRN      = 3*25
+; Add to transposition.
+NVM_TRN_ADD  = 3*26
+; Subtract from transposition
+NVM_TRN_SUB  = 3*27
 
 ; The note instructions allow the low nybble to be used as an offset into the
 ; frequency table after masking with 1Fh.
@@ -111,13 +116,18 @@ NVM_NOTE_Gs  = 90h
 NVM_NOTE_A   = 92h
 NVM_NOTE_As  = 94h
 NVM_NOTE_B   = 96h
-NVM_NOTE_Bs  = 98h
+NVM_NOTE_LIM = 98h
 
 NVM_NOTE_Db  = NVM_NOTE_Cs
 NVM_NOTE_Eb  = NVM_NOTE_Ds
 NVM_NOTE_Gb  = NVM_NOTE_Fs
 NVM_NOTE_Ab  = NVM_NOTE_Gs
 NVM_NOTE_Bb  = NVM_NOTE_As
+
+; PSG macro commands.
+NVM_MACRO_END   = 0FFh
+NVM_MACRO_LPSET = 0FEh
+NVM_MACRO_LPEND = 0FDh  ; falls through on note off.
 
 ; If a note command has bit 5 set (20h) then the next byte contains the rest
 ; counter value to use instead of the one set for teh channel.
@@ -171,7 +181,7 @@ nRest macro restval=0
 	endm
 
 nOct macro octno
-	db	NVM_OCT, (octno)*8
+	db	NVM_OCT, (octno)
 	endm
 
 nOctUp macro
@@ -275,6 +285,18 @@ nPcmStop macro
 	db	NVM_PCMSTOP
 	endm
 
+nTrn	macro trnval
+	db	NVM_TRN, trnval*2
+	endm
+
+nTrnAdd	macro trnval
+	db	NVM_TRN_ADD, trnval*2
+	endm
+
+nTrnSub	macro trnval
+	db	NVM_TRN_SUB, trnval*2
+	endm
+
 nNote macro noteval, spcarg
 	IF (spcarg) > 0
 	db	noteval | NVM_NOTE_REST_FLAG | ((spcarg)>>8)
@@ -330,10 +352,6 @@ nAs macro spcarg=0
 
 nB macro spcarg=0
 	nNote	NVM_NOTE_B, spcarg
-	endm
-
-nBs macro spcarg=0
-	nNote	NVM_NOTE_Bs, spcarg
 	endm
 
 nDb macro spcarg=0

@@ -18,10 +18,13 @@ TOTAL_BGM_CHANNEL_COUNT = OPN_BGM_CHANNEL_COUNT+PSG_BGM_CHANNEL_COUNT
 TOTAL_SFX_CHANNEL_COUNT = OPN_SFX_CHANNEL_COUNT+PSG_SFX_CHANNEL_COUNT
 TOTAL_CHANNEL_COUNT = TOTAL_BGM_CHANNEL_COUNT+TOTAL_SFX_CHANNEL_COUNT
 
-NVM_STACK_DEPTH = 5
-
+NVM_STACK_DEPTH = 8
+; Channel status
 NVM_STATUS_INACTIVE = 0
 NVM_STATUS_ACTIVE = 1
+; Currently channel type (set globally when interpreter is called)
+NVM_CHTYPE_OPN = 0
+NVM_CHTYPE_PSG = 1
 
 NVM_REST_DEFAULT = 12
 
@@ -48,10 +51,13 @@ rest_val:       ds 1
 rest_cnt:       ds 1
 
 ; Note settings
+transpose:      ds 1  ; in semitones
 volume:         ds 1  ; really attenuation, summed with tl on key-on.
 octave:         ds 1  ; stored as multiples of 8 to match block register.
 portamento:     ds 1  ; rate of change for target_freq. If 0, it is instant.
 
+; Instrument pointer (be it OPN patch or PSG macro)
+instrument_ptr: ds 2
 NVM endstruct
 
 ;
@@ -60,8 +66,7 @@ NVM endstruct
 NVMOPN struct
 nvmbase:        ds NVM.len
 
-; Patch
-patch_ptr:      ds 2
+; Instrument/Patch
 tl_conoffs:     ds 1  ; pre-multiplied jr table offset for tl setting (patch con * 2)
 tl:             ds 4  ; TL values from when instrument was set.
 pan:            ds 1  ; pan/ams/pms register.
@@ -84,8 +89,12 @@ NVMOPN endstruct
 ;
 NVMPSG struct
 nvmbase:        ds NVM.len
-
-envelope_ptr:   ds 2
+key_on:         ds 1
+env_ptr:        ds 2  ; copied from instrument on key down.
+env_loop_ptr:   ds 2
+now_period:     ds 2
+tgt_period:     ds 2
+pad:            ds 5
 
 NVMPSG endstruct
 
@@ -109,5 +118,4 @@ tb:                    ds 1  ; Timer B value (tempo control) (ignored for SFX)
 ; Null-terminated lists that are relative to the start of the data blob.
 track_list_offs:       ds 2  ; For SFX, these are the effect indices.
 instrument_list_offs:  ds 2
-macro_list_offs:       ds 2
 NEZINFO endstruct

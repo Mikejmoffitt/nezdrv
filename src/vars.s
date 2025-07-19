@@ -12,6 +12,8 @@ TmpStart:
 BgmContext:            ds NVMCONTEXT.len
 SfxContext:            ds NVMCONTEXT.len
 CurrentContext:        ds NVMCONTEXT.len
+
+
 ; Sound effect specific
 SfxTrackListPtr:       ds 2
 ; BGM Specific
@@ -21,7 +23,7 @@ PcmListPtr:            ds 2
 PcmAddr:               ds 2  ; current sample address.
 PsgMacroPtr:           ds 2
 
-;	align	10h
+	align	10h
 
 ; Playback channel state.
 NvmOpnBgm:             ds NVMOPN.len * OPN_BGM_CHANNEL_COUNT
