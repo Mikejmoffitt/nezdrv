@@ -194,15 +194,6 @@ nvm_op_jump:     ;  0
 	call	nvm_deref_hl_relative_offs_sub
 	jr	nvm_exec.instructions_from_hl
 
-; hl = start of relative label offset argument
-; clobbers bc, messes with hl
-nvm_deref_hl_relative_offs_sub:
-	ld	c, (hl)
-	inc	hl
-	ld	b, (hl)
-	add	hl, bc
-	ret
-
 nvm_op_call:     ;  1
 	call	nvm_get_stack_ptr_de_sub
 	; store call address in the pc
@@ -251,6 +242,7 @@ nvm_get_loop_stack_ptr_de_sub:
 	ld	d, (iy+NVM.loop_stack_ptr+1)
 	ld	e, (iy+NVM.loop_stack_ptr)
 	ret
+
 nvm_set_loop_stack_ptr_de_sub:
 	ld	(iy+NVM.loop_stack_ptr+1), d
 	ld	(iy+NVM.loop_stack_ptr), e
@@ -260,6 +252,7 @@ nvm_get_stack_ptr_de_sub:
 	ld	d, (iy+NVM.stack_ptr+1)
 	ld	e, (iy+NVM.stack_ptr)
 	ret
+
 nvm_set_stack_ptr_de_sub:
 	ld	(iy+NVM.stack_ptr+1), d
 	ld	(iy+NVM.stack_ptr), e
@@ -433,20 +426,6 @@ nvm_op_lfo:      ; 15
 	call	nvm_write_opn_global_hl_sub
 	jp	nvm_exec.instructions_from_hl
 
-; a = reg
-; (hl) = data to write
-; increments hl by one byte, clobbers a.
-nvm_write_opn_global_hl_sub:
-	ld	(OPN_ADDR0), a  ; addr
-	ld	a, (hl)
-	ld	(OPN_DATA0), a  ; data
-	inc	hl
-	ret
-
-nvm_op_stop:     ; 18
-	ld	(iy+NVM.status), NVM_STATUS_INACTIVE
-	ret
-
 nvm_op_note_off: ; 18
 	ld	a, (iy+NVM.channel_id)
 	and	a
@@ -528,6 +507,10 @@ nvm_op_trn:      ; 25
 	inc	hl
 	jp	nvm_exec.instructions_from_hl
 
+nvm_op_stop:     ; 18
+	ld	(iy+NVM.status), NVM_STATUS_INACTIVE
+	ret
+
 nvm_op_trn_add:   ; 26
 	ld	a, (iy+NVM.transpose)
 	add	a, (hl)
@@ -537,6 +520,25 @@ nvm_op_trn_sub:   ; 27
 	ld	a, (iy+NVM.transpose)
 	sub	a, (hl)
 	jr	nvm_op_trn.set
+
+; a = reg
+; (hl) = data to write
+; increments hl by one byte, clobbers a.
+nvm_write_opn_global_hl_sub:
+	ld	(OPN_ADDR0), a  ; addr
+	ld	a, (hl)
+	ld	(OPN_DATA0), a  ; data
+	inc	hl
+	ret
+
+; hl = start of relative label offset argument
+; clobbers bc, messes with hl
+nvm_deref_hl_relative_offs_sub:
+	ld	c, (hl)
+	inc	hl
+	ld	b, (hl)
+	add	hl, bc
+	ret
 
 ; ------------------------------------------------------------------------------
 ;
