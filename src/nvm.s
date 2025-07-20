@@ -5,7 +5,10 @@ nvm_channel_id_tbl:  ; These correspond to register offsets.
 
 ; ------------------------------------------------------------------------------
 ;
-; State Reset
+; Resets generic NVM state for a single channel.
+;
+; in:
+;      iy = NVM channel struct
 ;
 ; These functions are called when new BGM is played, a sound effect starts, etc.
 ;
@@ -47,42 +50,132 @@ nvm_reset_sub:
 	exx
 	ret
 
-; ------------------------------------------------------------------------------
-;
-; Resets channels to an inactive state.
-;
-; ------------------------------------------------------------------------------
-nvm_bgm_reset:
-	pcm_poll_disable
-	ld	b, OPN_BGM_CHANNEL_COUNT
-	ld	iy, NvmOpnBgm
-	ld	de, NVMOPN.len
--:
+nvm_reset_by_type_sub:
 	call	nvm_reset_sub
+	ld	a, (iy+NVM.channel_id)
+	and	a
+	jp	p, .opn_specific
+.psg_specific:
+	xor	a
+	ld	(iy+NVMPSG.key_on), a
+	ret
+.opn_specific:
 	; default to both outputs, no modulation
 	ld	(iy+NVMOPN.pan), OPN_PAN_L|OPN_PAN_R
 	; No portamento for first note.
 	ld	(iy+NVMOPN.now_block), 80h
-	add	iy, de
-	djnz	-
+	ret
 
-	; iy is at NvmPsgBgm now.
-	ld	b, PSG_BGM_CHANNEL_COUNT
-	ld	iy, NvmPsgBgm
-	ld	de, NVMPSG.len
-	; fall-through to .reset_lp
--:
-	call	nvm_reset_sub
-	; TODO: PSG shit
+
+; ------------------------------------------------------------------------------
+;
+; Resets all channels to an inactive state and silences sound generators.
+;
+; in:  (none)
+; out: (one)
+;
+; ------------------------------------------------------------------------------
+nvm_bgm_reset:
+	pcm_poll_disable
+	ld	b, TOTAL_BGM_CHANNEL_COUNT
+	ld	iy, NvmBgm
+	ld	de, NVMBGM.len
+.loop:
+	call	nvm_reset_by_type_sub
 	add	iy, de
-	djnz	-
+	djnz	.loop
 
 	call	psg_reset
 	jp	opn_reset
 
 ; ------------------------------------------------------------------------------
 ;
-; Main Poll Function
+; Assigns and plays a sound effect, muting the equivalent BGM channel.
+;
+; in:
+;      hl = track head (first byte is the channel ID);
+;
+; ------------------------------------------------------------------------------
+nvm_sfx_play:
+	; Set up the SFX loop for the first run, where we want a channel match.
+	ld	a, 28h  ; jr z first byte.
+	ld	(.sfx_check_instruction), a
+	ld	d, 00h
+	ld	a, (hl)
+	ld	e, a  ; desired channel ID index
+	inc	hl
+	push	hl  ; will be assigned to the final channel.
+	ld	hl, nvm_channel_id_tbl
+	add	hl, de
+	ld	a, (hl)  ; A now contains the desired channel ID itself.
+	; Search for an active SFX channel with the same ID, and replace it.
+	ld	b, SFX_CHANNEL_COUNT
+	ld	iy, NvmSfx
+	ld	de, NVMSFX.len
+.loop_sfx:
+	ld	c, (iy+NVM.status)
+	and	c
+	jr	z, .next_sfx  ; inactive channel.
+	cp	(iy+NVM.channel_id)
+.sfx_check_instruction:
+	jr	z, .found_channel
+.next_sfx:
+	djnz	.loop_sfx
+	; If we didn't find one, just find an open one. Modify the loop so that
+	; the found channel case is hit just if the channel is open.
+	ld	c, a  ; back up channel ID
+	ld	a, (.sfx_check_instruction)
+	cp	28h
+	ret	nz  ; If it's the second go, give up - no free channels.
+	ld	a, 18h  ; jr unconditional.
+	ld	(.sfx_check_instruction), a
+	ld	a, c  ; restore channel ID
+
+; An open SFX channel has been found - initialize it and store the channel ID.
+.found_channel:
+	di
+	ex	af, af'
+	call	nvm_reset_by_type_sub
+	ex	af, af'
+	ei
+
+	; assign channel ID and track head, and mark as active.
+	ld	(iy+NVM.channel_id), a  ; record desired channel id
+	pop	hl
+	ld	(iy+NVM.pc+1), h
+	ld	(iy+NVM.pc), l
+	ld	(iy+NVM.status), NVM_STATUS_ACTIVE
+
+	; Finally, determine the BGM channel that corresponds with the channel
+	; ID, and mark its mute field address in the NVMSFX struct.
+	; A still contains the channel ID.
+	ld	b, TOTAL_BGM_CHANNEL_COUNT
+	ld	ix, NvmBgm
+	ld	de, NVMBGM.len
+.loop_bgm:
+	cp	(ix+NVM.channel_id)
+	jr	z, .found_matching_bgm
+	djnz	.loop_bgm
+	; We should never reach this point without a matching channel.
+.found_matching_bgm:
+	; Make pointer to the BGM channel's mute field.
+	push	ix
+	pop	hl
+	ld	de, NVM.mute
+	add	hl, de
+	ld	(iy+NVMSFX.mute_ptr+1), h
+	ld	(iy+NVMSFX.mute_ptr), l
+	; Go ahead and mute it too.
+	ld	(hl), 01h
+	ret
+
+; ------------------------------------------------------------------------------
+;
+; Context Switching
+;
+; Sound effects and background music exist in their own worlds, with their own
+; instrument tables, volume levels, and PCM playback rates. These functions
+; copy the appropriate data into the currently active variables.
 ;
 ; ------------------------------------------------------------------------------
 
@@ -105,9 +198,19 @@ nvm_context_copy:
 	pcm_service
 	ret
 
-; b = count
-; iy = NVMOPN head
-; de = struct size
+; ------------------------------------------------------------------------------
+;
+; Main Poll Function
+;
+; A group of channels is executed for one tick.
+;
+; in:
+;      b = count
+;     iy = NVM head
+;     de = struct size (increment for iy when iterating)
+;
+; ------------------------------------------------------------------------------
+
 nvm_poll:
 .loop:
 	push	bc
@@ -134,11 +237,6 @@ nvm_poll:
 ; Execution of NVM Instructions
 ;
 ; ------------------------------------------------------------------------------
-
-nvm_store_hl_pc_sub:
-	ld	(iy+NVM.pc+1), h
-	ld	(iy+NVM.pc), l
-	ret
 
 nvm_op_finished_yield:
 	call	nvm_store_hl_pc_sub
@@ -521,6 +619,13 @@ IsSfx = .note_off_mute_unset_load+1
 
 	jr	nvm_note_off_sub
 
+;
+; These tiny support functions are here for things that are done just often
+; enough that a 3-byte call saves a tiny bit of space compared to inlining
+; the functionality. With 8K between program, work RAM, and track data, every
+; saved byte helps towards the cause...
+;
+
 nvm_op_trn_add:   ; 26
 	ld	a, (iy+NVM.transpose)
 	add	a, (hl)
@@ -550,8 +655,12 @@ nvm_deref_hl_relative_offs_sub:
 	add	hl, bc
 	ret
 
-nvm_note_off_sub:
+nvm_store_hl_pc_sub:
+	ld	(iy+NVM.pc+1), h
+	ld	(iy+NVM.pc), l
+	ret
 
+nvm_note_off_sub:
 	ld	a, (iy+NVM.channel_id)
 	and	a
 	jp	p, .opn
@@ -572,30 +681,28 @@ nvm_note_off_sub:
 ;
 ; ------------------------------------------------------------------------------
 
-nvm_opn_tlmod_sub:
+;
+; Adjusts the TL register for an OPN channel by both the channel and global
+; volume setting.
+;
+nvmopn_tlmod:
+	ld	a, (CurrentContext+NVMCONTEXT.global_volume)
+	add	a, (iy+NVM.volume)
+	ld	(CurrentChannelVol), a
+
 	;
 	; Prepare OPN offset
 	;
 	ld	a, (iy+NVM.channel_id)
 	call	opn_set_base_de_sub
-	ld	c, a  ; nvm_opn_tlmod_sub relies on this.
+	ld	c, a
 
 tlmod macro opno
-	ld	a, (CurrentContext+NVMCONTEXT.global_volume)
-	add	a, (iy+NVMOPN.tl+opno)
-	add	a, (iy+NVM.volume)
-	cp	80h
-	jr	c, +
-	ld	a, 7Fh
-+:
+	ld	a, (iy+NVMOPN.tl+opno)
+	call	.limit_sub
 	ld	i, a
-	ld	a, c
-	add	a, OPN_REG_TL+(4*opno)
-	ld	(de), a
-	inc	de
-	ld	a, i
-	ld	(de), a  ; updated TL value
-	dec	de
+	ld	a, OPN_REG_TL+(4*opno)
+	call	.write_sub
 	endm
 
 	; Modify tl. Must leave B alone for use afterwards.
@@ -622,6 +729,34 @@ tlmod macro opno
 	tlmod	3
 
 	ret
+
+; in:
+;      a = TL register (differs by op number)
+;      c = channel ID
+;     de = OPN base for corresponding side
+;      i = TL value to write
+.write_sub:
+	add	a, c  ; add channel ID
+	ld	(de), a
+	inc	de
+	ld	a, i
+	ld	(de), a  ; updated TL value
+	dec	de
+	ret
+
+; in:
+;      a = TL value
+; out:
+;      a = TL value summed with effective volume, limited to 7Fh
+.limit_sub:
+	add	a, 00h  ; replaced as CurrentChannelVol
+CurrentChannelVol = .limit_sub+1
+	cp	80h
+	ret	c
+	ld	a, 7Fh
+	ret
+
+
 
 nvm_op_note:
 	ld	b, a  ; back up the note data in b
@@ -655,7 +790,7 @@ nvmpsg_op_note:
 nvmopn_op_note:
 
 	; Volume modulation
-	call	nvm_opn_tlmod_sub
+	call	nvmopn_tlmod
 
 	; key event set
 

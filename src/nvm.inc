@@ -125,7 +125,6 @@ NVMCONTEXT struct
 global_volume:       ds 1
 buffer_ptr:          ds 2
 instrument_list_ptr: ds 2
-pcm_list_ptr:        ds 2
 pcm_rate:            ds 2
 NVMCONTEXT endstruct
 
