@@ -37,7 +37,8 @@ pcm_poll:
 	dec	hl
 
 	; Read sample
-	ld	de, (PcmAddr)
+.pcmaddr_load:
+	ld	de, 6502h  ; immediate replaced as PcmAddr
 	ld	a, (de)
 	inc	a
 	jr	z, .finished  ; if end marker, bail out and kill pcm
@@ -56,3 +57,5 @@ pcm_poll:
 .finished:
 	pcm_poll_disable
 	jr	pcm_poll.done
+
+PcmAddr = .pcmaddr_load+1
