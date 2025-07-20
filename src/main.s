@@ -6,19 +6,15 @@
 ; bc = bytes
 
 mainloop:
-	ld	a, (MailBoxCommand+NEZMB.cmd)
+	ld	a, (MailBox+NEZMB.cmd)
 	and	a
-	jr	z, +
-	call	mailbox_handle_cmd
-+:
+	call	nz, mailbox_handle_cmd
 
 .vbl_flag_load:
 	ld	a, 0FFh  ; to be overwritten as VblWaitFlag.
 VblWaitFlag = .vbl_flag_load+1
 	and	a
-	jr	nz, +
-	call	nez_run_sfx_sub
-+:
+	call	z, nez_run_sfx_sub
 	; Wait for timer events.
 	pcm_service  ; status exists in a and carry
 	rrca  ; test bit B

@@ -677,13 +677,13 @@ nvm_note_off_sub:
 
 ; ------------------------------------------------------------------------------
 ;
-; Notes
-;
-; ------------------------------------------------------------------------------
-
+; OPN volume application (through TL adjustment)
 ;
 ; Adjusts the TL register for an OPN channel by both the channel and global
 ; volume setting.
+;
+; in:
+;     iy = NVMOPN channel struct
 ;
 nvmopn_tlmod:
 	ld	a, (CurrentContext+NVMCONTEXT.global_volume)
@@ -788,7 +788,6 @@ nvmpsg_op_note:
 	jp	nvm_op_note_setrest
 
 nvmopn_op_note:
-
 	; Volume modulation
 	call	nvmopn_tlmod
 
