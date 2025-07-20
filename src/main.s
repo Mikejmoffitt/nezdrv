@@ -39,9 +39,7 @@ nez_run_bgm_sub:
 BgmPlaying = .bgm_playing_load+1
 	and	a
 	ret	m  ; just paused; return without playing.
-	jr	nz, +  ; playing
-	jp	nvm_bgm_reset
-+:
+	jp	z, nvm_bgm_reset
 	call	nvm_context_bgm_set
 	ld	b, TOTAL_BGM_CHANNEL_COUNT
 	ld	iy, NvmBgm
