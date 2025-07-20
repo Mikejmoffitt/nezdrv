@@ -9,6 +9,7 @@
 ; configuration, while the sound effect cue mailbox is for triggering effects.
 ;
 
+NEZ_MAILBOX_ADDR = Z80_RAM_BYTES-20h
 
 ; ------------------------------------------------------------------------------
 ;

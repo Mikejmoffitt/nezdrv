@@ -3,7 +3,7 @@
 ;
 
 ; PSG and OPN effects need to match in count as a tiny optimization.
-SFX_CHANNEL_COUNT = 3
+SFX_CHANNEL_COUNT = 2
 
 ; Channels A-F
 OPN_BGM_CHANNEL_COUNT = 6
@@ -50,10 +50,10 @@ rest_val:       ds 1
 rest_cnt:       ds 1
 
 ; Vibrato
-vib_phase:      ds 1  ; counting up or down
-vib_cnt:        ds 1  ; current value
-vib_mag:        ds 1  ; strength
-vib_speed:      ds 1  ; how much to increment by
+;vib_phase:      ds 1  ; counting up or down
+;vib_cnt:        ds 1  ; current value
+;vib_mag:        ds 1  ; strength
+;vib_speed:      ds 1  ; how much to increment by
 
 ; Note settings
 transpose:      ds 1  ; in semitones
@@ -85,8 +85,6 @@ now_block:      ds 1  ; if negative, immediately adopts the target.
 tgt_freq:       ds 2
 tgt_block:      ds 1
 
-pad:            ds 1
-
 NVMOPN endstruct
 
 ;
@@ -104,7 +102,6 @@ env_loop_ptr:   ds 2
 ; Portamento state
 now_period:     ds 2
 tgt_period:     ds 2
-pad:            ds 5
 
 NVMPSG endstruct
 
@@ -117,6 +114,7 @@ global_volume:       ds 1
 buffer_ptr:          ds 2
 instrument_list_ptr: ds 2
 pcm_list_ptr:        ds 2
+pcm_rate:            ds 2
 NVMCONTEXT endstruct
 
 
@@ -124,7 +122,7 @@ NVMCONTEXT endstruct
 ; Two bytes preceed it with a word that contains the byte count of the data.
 NEZINFO struct
 ta:                    ds 2  ; Timer A value (PCM rate) (ignored for SFX)
-tb:                    ds 1  ; Timer B value (tempo control) (ignored for SFX)
+tb:                    ds 1  ; Timer B value (tempo control)
 ; Null-terminated lists that are relative to the start of the data blob.
 track_list_offs:       ds 2  ; For SFX, these are the effect indices.
 instrument_list_offs:  ds 2

@@ -1,16 +1,3 @@
-; a = command
-mailbox_init:
-	ld	hl, MailBoxMemStart
-	ld	bc, MailBoxMemEnd-MailBoxMemStart-1
-	call	mem_clear_sub
-	ld	hl, MailBoxReadySig
-	ld	(hl), 'N'
-	inc	hl
-	ld	(hl), 'E'
-	inc	hl
-	ld	(hl), 'Z'
-	ret
-
 mailbox_handle_cmd:
 	ld	hl, MailBoxCommand+1  ; pass by command
 	ld	b, a

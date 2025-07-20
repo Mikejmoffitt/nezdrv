@@ -37,6 +37,10 @@ nez_load_sfx_data:
 	ld	(PcmListPtr), de  ; PCM data
 	call	nez_load_standard_rebase_sub
 
+	call	nez_load_timers_sub
+
+	ld	de, (CurrentContext+NVMCONTEXT.pcm_rate)
+	ld	(SfxContext+NVMCONTEXT.pcm_rate), de
 	ld	de, (CurrentContext+NVMCONTEXT.instrument_list_ptr)
 	ld	(SfxContext+NVMCONTEXT.instrument_list_ptr), de
 
@@ -69,7 +73,9 @@ nez_load_bgm_data:
 	ld	(UserBufferLoadPtr), de
 	call	nez_load_standard_rebase_sub
 	call	nez_bgm_assign_tracks_sub
-	call	nez_bgm_set_timers_sub
+	call	nez_load_timers_sub
+	ld	de, (CurrentContext+NVMCONTEXT.pcm_rate)
+	ld	(BgmContext+NVMCONTEXT.pcm_rate), de
 	ld	de, (CurrentContext+NVMCONTEXT.instrument_list_ptr)
 	ld	(BgmContext+NVMCONTEXT.instrument_list_ptr), de
 	ret
@@ -86,6 +92,26 @@ nez_load_buffer_sub:
 	ldir
 	ld	(UserBufferLoadPtr), de
 	ret
+
+; Loads the timer A value and copies it to the current context, and loads
+; timer B directly into the OPN.
+nez_load_timers_sub:
+	ld	hl, (CurrentContext+NVMCONTEXT.buffer_ptr)
+	IF	NEZINFO.ta > 0
+	ld	de, NEZINFO.ta
+	add	hl, de
+	ENDIF
+	; Copy timer A data
+	ld	de, CurrentContext+NVMCONTEXT.pcm_rate
+	ldi
+	ldi
+	; Set timer B
+	ld	a, OPN_REG_TB
+	ld	(OPN_ADDR0), a
+	ld	a, (hl)
+	ld	(OPN_DATA0), a
+	ret
+
 
 ; input: hl pointing to a list head offset
 ; output: hl pointing at the head of the list itself
@@ -125,28 +151,6 @@ nez_bgm_assign_tracks_sub:
 	inc	hl
 	ld	(iy+NVM.status), NVM_STATUS_ACTIVE
 	add	iy, de
-	djnz	.loop
-	ret
-
-nez_bgm_set_timers_sub:
-	; Set the timers.
-	ld	hl, (CurrentContext+NVMCONTEXT.buffer_ptr)
-	ld	de, NEZINFO.ta
-	add	hl, de
-	ld	de, OPN_ADDR0
-	ld	c, OPN_REG_TA_HI
-	ld	b, 3
-.loop:
-	ld	a, c
-	ld	(de), a  ; addr
-	inc	de
-	ld	a, (hl)
-	ld	(de), a  ; data
-	dec	de
-	inc	hl
-	inc	c
-	push	hl
-	pop	hl  ; just a delay
 	djnz	.loop
 	ret
 

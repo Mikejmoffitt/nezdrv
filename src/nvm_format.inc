@@ -101,8 +101,6 @@ NVM_TRN      = 3*25
 NVM_TRN_ADD  = 3*26
 ; Subtract from transposition
 NVM_TRN_SUB  = 3*27
-; Set vibrato.
-NVM_VIB      = 3*28
 
 ; The note instructions allow the low nybble to be used as an offset into the
 ; frequency table after masking with 1Fh.

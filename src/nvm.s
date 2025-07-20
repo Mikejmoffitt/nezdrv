@@ -1,68 +1,10 @@
 ; ------------------------------------------------------------------------------
 ;
-; Initialization
+; State Reset
+;
+; These functions are called when new BGM is played, a sound effect starts, etc.
 ;
 ; ------------------------------------------------------------------------------
-nvm_init:
-	call	nvm_bgm_channels_init
-	call	nvm_sfx_channels_init
-	; All buffers start at UserBuffer. It is expected that SFX and PCM are
-	; set once, while BGM can be exchanged. It's also okay to omit SFX and
-	; PCM loads.
-	ld	hl, UserBuffer
-	ld	(UserBufferLoadPtr), hl
-	ld	(BgmContext+NVMCONTEXT.buffer_ptr), hl
-	ld	(SfxContext+NVMCONTEXT.buffer_ptr), hl
-	ld	(PcmListPtr), hl
-	xor	a
-	ld	(BgmContext+NVMCONTEXT.global_volume), a
-	ld	(SfxContext+NVMCONTEXT.global_volume), a
-	ret
-
-nvm_opn_channel_id_tbl:
-	db	0, 1, 2, 4, 5, 6  ; bgm
-nvm_psg_channel_id_tbl:
-	db	80h, 0A0h, 0C0h     ; bgm
-
-nvm_bgm_channels_init:
-	ld	de, NVMOPN.len
-	ld	hl, nvm_opn_channel_id_tbl
-	ld	iy, NvmOpnBgm
-	ld	b, OPN_BGM_CHANNEL_COUNT
-	call	nvm_channel_grp_init_sub
-	ld	de, NVMPSG.len
-	ld	hl, nvm_psg_channel_id_tbl
-	ld	b, PSG_BGM_CHANNEL_COUNT
-	ld	iy, NvmPsgBgm
-	jr	nvm_channel_grp_init_sub
-
-nvm_sfx_channels_init:
-	ld	de, NVMOPN.len
-	ld	hl, nvm_opn_channel_id_tbl
-	ld	iy, NvmOpnSfx
-	ld	b, OPN_SFX_CHANNEL_COUNT
-	call	nvm_channel_grp_init_sub
-	ld	de, NVMPSG.len
-	ld	hl, nvm_psg_channel_id_tbl
-	ld	b, PSG_SFX_CHANNEL_COUNT
-	ld	iy, NvmPsgSfx
-	jr	nvm_channel_grp_init_sub
-
-; hl = channel id assignment tbl
-; iy = start of block
-; de = struct offset per
-; b = count
-nvm_channel_grp_init_sub:
--:
-	call	nvm_reset_sub
-
-	ld	a, (hl)
-	inc	hl
-	ld	(iy+NVM.channel_id), a
-
-	add	iy, de
-	djnz	-
-	ret
 
 ; iy = NVM head
 nvm_reset_sub:
@@ -73,10 +15,10 @@ nvm_reset_sub:
 	ld	(iy+NVM.mute), a        ; unmuted
 	ld	(iy+NVM.portamento), a  ; no portamento
 
-	ld	(iy+NVM.vib_phase), a
-	ld	(iy+NVM.vib_cnt), a
-	ld	(iy+NVM.vib_mag), a
-	ld	(iy+NVM.vib_speed), a
+;	ld	(iy+NVM.vib_phase), a
+;	ld	(iy+NVM.vib_cnt), a
+;	ld	(iy+NVM.vib_mag), a
+;	ld	(iy+NVM.vib_speed), a
 
 	ld	(iy+NVM.rest_cnt), a
 	ld	(iy+NVM.transpose), a   ; no transpose
@@ -184,9 +126,13 @@ nvm_poll:
 ;
 ; ------------------------------------------------------------------------------
 
-nvm_op_finished_yield:
+nvm_store_hl_pc_sub:
 	ld	(iy+NVM.pc+1), h
 	ld	(iy+NVM.pc), l
+	ret
+
+nvm_op_finished_yield:
+	call	nvm_store_hl_pc_sub
 nvm_exec:
 .top:
 	; If rest counter > 0, decrement and proceed
@@ -245,82 +191,89 @@ nvm_exec:
 
 nvm_op_jump:     ;  0
 	; two bytes - relative pointer to jump to
-	call	.set_pc_relative_offs
+	call	nvm_deref_hl_relative_offs_sub
 	jr	nvm_exec.instructions_from_hl
 
 ; hl = start of relative label offset argument
 ; clobbers bc, messes with hl
-.set_pc_relative_offs:
+nvm_deref_hl_relative_offs_sub:
 	ld	c, (hl)
 	inc	hl
 	ld	b, (hl)
 	add	hl, bc
-	ld	(iy+NVM.pc+1), h
-	ld	(iy+NVM.pc), l
 	ret
 
-
 nvm_op_call:     ;  1
-	; get stack pointer in de
-	ld	d, (iy+NVM.stack_ptr+1)
-	ld	e, (iy+NVM.stack_ptr)
+	call	nvm_get_stack_ptr_de_sub
 	; store call address in the pc
 	push	hl
-	call	nvm_op_jump.set_pc_relative_offs
+	call	nvm_deref_hl_relative_offs_sub
+	call	nvm_store_hl_pc_sub
 	pop	hl
 	inc	hl
 	inc	hl
 	; write hl - address after call instruction - to stack.
-	ld	a, h
-	ld	(de), a
-	inc	de
 	ld	a, l
 	ld	(de), a
 	inc	de
+	ld	a, h
+	ld	(de), a
+	inc	de
 	; store moved stack pointer
-	ld	(iy+NVM.stack_ptr+1), d
-	ld	(iy+NVM.stack_ptr), e
+	call	nvm_set_stack_ptr_de_sub
 	jp	nvm_exec.instructions_from_pc
 
 nvm_op_ret:      ;  2
 	; decrement stack pointer, and place contents in pc.
-	ld	h, (iy+NVM.stack_ptr+1)
-	ld	l, (iy+NVM.stack_ptr)
-	dec	hl
-	dec	hl
-	ld	(iy+NVM.stack_ptr+1), h
-	ld	(iy+NVM.stack_ptr), l
-	ld	a, (hl)
-	ld	(iy+NVM.pc+1), a
+	call	nvm_get_stack_ptr_de_sub
+	dec	de
+	dec	de
+	call	nvm_set_stack_ptr_de_sub
+	ex	de, hl
+	ld	e, (hl)
 	inc	hl
-	ld	a, (hl)
-	ld	(iy+NVM.pc), a
-	jp	nvm_exec.instructions_from_pc
+	ld	d, (hl)
+	ex	de, hl
+	jp	nvm_exec.instructions_from_hl
 
 nvm_op_loopset:  ;  3
 	; Get loop count
 	ld	a, (hl)
 	inc	hl
 	; Advance loop stack ptr and set count.
-	ld	d, (iy+NVM.loop_stack_ptr+1)
-	ld	e, (iy+NVM.loop_stack_ptr)
+	call	nvm_get_loop_stack_ptr_de_sub
 	inc	de
-	ld	(iy+NVM.loop_stack_ptr+1), d
-	ld	(iy+NVM.loop_stack_ptr), e
+	call	nvm_set_loop_stack_ptr_de_sub
 	ld	(de), a
 	jp	nvm_exec.instructions_from_hl
 
-nvm_op_loopend:  ;  4
+nvm_get_loop_stack_ptr_de_sub:
 	ld	d, (iy+NVM.loop_stack_ptr+1)
 	ld	e, (iy+NVM.loop_stack_ptr)
+	ret
+nvm_set_loop_stack_ptr_de_sub:
+	ld	(iy+NVM.loop_stack_ptr+1), d
+	ld	(iy+NVM.loop_stack_ptr), e
+	ret
+
+nvm_get_stack_ptr_de_sub:
+	ld	d, (iy+NVM.stack_ptr+1)
+	ld	e, (iy+NVM.stack_ptr)
+	ret
+nvm_set_stack_ptr_de_sub:
+	ld	(iy+NVM.stack_ptr+1), d
+	ld	(iy+NVM.stack_ptr), e
+	ret
+
+nvm_op_loopend:  ;  4
+	call	nvm_get_loop_stack_ptr_de_sub
 	ld	a, (de)
 	dec	a
 	ld	(de), a
 	jr	nz, nvm_op_jump  ; Branch backwards
 	; Bump back loop stack ptr and proceed.
 	dec	de
-	ld	(iy+NVM.loop_stack_ptr+1), d
-	ld	(iy+NVM.loop_stack_ptr), e
+	call	nvm_set_loop_stack_ptr_de_sub
 	inc	hl
 	inc	hl
 	jp	nvm_exec.instructions_from_hl
@@ -450,10 +403,10 @@ nvm_op_vol:      ; 12
 	jp	nvm_exec.instructions_from_hl
 
 nvm_op_pan:      ; 13
-	ld	a, (iy+NVMOPN.pan)
-	and	a, 3Fh  ; remove pan bits
+	ld	a, 3Fh  ; remove pan bits
 	; fall-through to commit
-nvm_op_pan_commit_a:
+nvm_op_pan_commit_mask_a:
+	and	a, (iy+NVMOPN.pan)
 	or	a, (hl)
 	inc	hl
 	ld	b, a
@@ -468,22 +421,27 @@ nvm_op_pan_commit_a:
 	jp	nvm_exec.instructions_from_hl
 
 nvm_op_pms:      ; 14
-	ld	a, (iy+NVMOPN.pan)
-	and	a, 0F8h  ; remove pms bits
-	jr	nvm_op_pan_commit_a
+	ld	a, 0F8h  ; remove pms bits
+	jr	nvm_op_pan_commit_mask_a
 
 nvm_op_ams:      ; 15
-	ld	a, (iy+NVMOPN.pan)
-	and	a, 0CFh  ; remove ams bits
-	jr	nvm_op_pan_commit_a
+	ld	a, 0CFh  ; remove ams bits
+	jr	nvm_op_pan_commit_mask_a
 
 nvm_op_lfo:      ; 15
 	ld	a, OPN_REG_LFO
+	call	nvm_write_opn_global_hl_sub
+	jp	nvm_exec.instructions_from_hl
+
+; a = reg
+; (hl) = data to write
+; increments hl by one byte, clobbers a.
+nvm_write_opn_global_hl_sub:
 	ld	(OPN_ADDR0), a  ; addr
 	ld	a, (hl)
 	ld	(OPN_DATA0), a  ; data
 	inc	hl
-	jp	nvm_exec.instructions_from_hl
+	ret
 
 nvm_op_stop:     ; 18
 	ld	(iy+NVM.status), NVM_STATUS_INACTIVE
@@ -512,25 +470,14 @@ nvm_op_slide:    ; 19
 	jp	nvm_exec.instructions_from_hl
 
 nvm_op_pcmrate:  ; 20
-	ld	a, OPN_REG_TA_HI
-	ld	(OPN_ADDR0), a
-	ld	a, (hl)
-	inc	hl
-	ld	(OPN_DATA0), a
-	nop
-	ld	a, OPN_REG_TA_LO
-	ld	(OPN_ADDR0), a
-	ld	a, (hl)
-	inc	hl
-	ld	(OPN_DATA0), a
+	ld	de, CurrentContext+NVMCONTEXT.pcm_rate
+	ldi
+	ldi
 	jp	nvm_exec.instructions_from_hl
 
 nvm_op_pcmmode:  ; 21
 	ld	a, OPN_REG_DACSEL
-	ld	(OPN_ADDR0), a  ; addr
-	ld	a, (hl)
-	ld	(OPN_DATA0), a  ; addr
-	inc	hl
+	call	nvm_write_opn_global_hl_sub
 	jp	nvm_exec.instructions_from_hl
 
 nvm_op_pcmplay:  ; 22
@@ -548,6 +495,12 @@ nvm_op_pcmplay:  ; 22
 	inc	hl
 	ld	d, (hl)
 	ld	(PcmAddr), de
+	; Set timer A rate
+	ld	hl, CurrentContext+NVMCONTEXT.pcm_rate
+	ld	a, OPN_REG_TA_HI
+	call	nvm_write_opn_global_hl_sub
+	ld	a, OPN_REG_TA_LO
+	call	nvm_write_opn_global_hl_sub
 	; Enable PCM
 	pcm_poll_enable
 	pop	hl
@@ -596,7 +549,7 @@ nvm_opn_tlmod_sub:
 	; Prepare OPN offset
 	;
 	ld	a, (iy+NVM.channel_id)
-	opn_set_base_de
+	call	opn_set_base_de_sub
 	ld	c, a  ; nvm_opn_tlmod_sub relies on this.
 
 tlmod macro opno
@@ -825,6 +778,7 @@ nvmopn_pitch:
 .target_block_lower:
 	; sub portamento from now freq
 	ld	a, (iy+NVM.portamento)
+	call	nvm_sub_a_from_hl_sub
 	sub_a_from_hl
 	; Is hl below OPN_NOTE_C?
 	ld	de, OPN_NOTE_C
@@ -841,7 +795,7 @@ nvmopn_pitch:
 .target_block_higher:
 	; add portamento to now freq
 	ld	a, (iy+NVM.portamento)
-	add_a_to_hl
+	call	nvm_add_a_to_hl_sub
 	; Is hl above OPN_NOTE_C*2?
 	ld	de, OPN_NOTE_C*2
 	compare_hl_r16 de
@@ -851,7 +805,7 @@ nvmopn_pitch:
 	ld	a, (iy+NVMOPN.now_block)
 	add	a, 08h
 .new_block_mask_and_set:
-	and	3Fh  ; TODO: Remove? is there any harm to those upper bits?
+;	and	3Fh  ; TODO: Put back if we find upper bits harmful
 	ld	(iy+NVMOPN.now_block), a
 	add	hl, de
 +:
@@ -869,7 +823,7 @@ nvmopn_pitch:
 	jr	c, .target_freq_higher
 .target_freq_lower:
 	ld	a, (iy+NVM.portamento)
-	sub_a_from_hl
+	call	nvm_sub_a_from_hl_sub
 	; Did we surpass the target?
 	compare_hl_r16 de
 	jr	nc, .now_freq_hl_commit  ; nope
@@ -880,11 +834,19 @@ nvmopn_pitch:
 	ret
 .target_freq_higher:
 	ld	a, (iy+NVM.portamento)
-	add_a_to_hl
+	call	nvm_add_a_to_hl_sub
 	; Did we surpass the target?
 	compare_hl_r16 de
 	jr	c, .now_freq_hl_commit  ; nope
 	jr	.now_freq_de_commit  ; adopt target and get out.
+
+nvm_add_a_to_hl_sub:
+	add_a_to_hl
+	ret
+
+nvm_sub_a_from_hl_sub:
+	sub_a_from_hl
+	ret
 
 
 ; ------------------------------------------------------------------------------

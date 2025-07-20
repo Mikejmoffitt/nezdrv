@@ -1,5 +1,5 @@
 ;
-; pcm_poll is at 8 so it may be called by `rst 8` via macro.
+; pcm_poll is at 8 so it may be called by `rst pcm_poll`.
 ;
 
 ; trashes a, flags
@@ -25,6 +25,7 @@ pcm_poll:
 	; set to C9h for ret if PCM is not playing and D0h for ret NC when in use.
 	ret
 
+	di
 	exx
 	ex	af, af'
 
@@ -46,12 +47,12 @@ pcm_poll:
 	inc	de
 	ld	(PcmAddr), de
 .done:
-	rept	9
 	nop
-	endm
-
+	nop
+	nop
 	exx
 	ex	af, af'
+	ei
 
 	ret
 

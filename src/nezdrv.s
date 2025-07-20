@@ -5,8 +5,6 @@
 	cpu		Z80
 	dottedstructs	on
 
-NEZ_VERSION_STR = "NEZDRV01"
-
 	include	"src/macro.inc"
 	include	"src/memmap.inc"
 
@@ -15,13 +13,29 @@ NEZ_VERSION_STR = "NEZDRV01"
 	include	"src/nvm_format.inc"
 	include	"src/opn.inc"
 	org	0000h
+	include	"src/mem_misc.s"
+	org	0000h
 v_rst0:
-	di                   ; 1 byte
-	im	1            ; 2 bytes
-	ld	sp, StackEnd ; 3 bytes
-	jr	start        ; 2 bytes
-	db	NEZ_VERSION_STR
+	di                           ; 1 byte
+	ld	sp, NEZ_MAILBOX_ADDR ; 3 bytes
+	jp	start                ; 3 bytes
 	include	"src/pcm.s"
+	include	"src/irq.s"
+
+; These files contain code that is only executed once, at startup. Some of it
+; gets overlaid by work RAM variables.
+PRG_STARTUP = $
+	include	"src/mailbox_init.s"
+	include	"src/nvm_init.s"
+	include	"src/startup.s"
+
+LAST_ORG	:=	$
+	org	PRG_STARTUP
+; RAM that overlays startup code.
+	include	"src/mem_context.s"
+
+	org	LAST_ORG
+	db	"PRGMAIN"
 	include	"src/bank.s"
 	include	"src/main.s"
 	include	"src/mailbox.s"
@@ -29,4 +43,14 @@ v_rst0:
 	include	"src/opn.s"
 	include	"src/psg.s"
 	include	"src/nvm.s"
-	include	"src/vars.s"
+
+NvmOpnSfx:             ds NVMOPN.len * OPN_SFX_CHANNEL_COUNT
+NvmPsgSfx:             ds NVMPSG.len * PSG_SFX_CHANNEL_COUNT
+NvmOpnBgm:             ds NVMOPN.len * OPN_BGM_CHANNEL_COUNT
+NvmPsgBgm:             ds NVMPSG.len * PSG_BGM_CHANNEL_COUNT
+; This is where user data (tracks, instruments, etc) lives.
+UserBuffer:
+
+	include	"src/mem_mailbox.s"
+
+
