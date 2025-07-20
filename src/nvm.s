@@ -1,3 +1,8 @@
+
+nvm_channel_id_tbl:  ; These correspond to register offsets.
+	db	0, 1, 2, 4, 5, 6
+	db	80h, 0A0h, 0C0h, 0E0h
+
 ; ------------------------------------------------------------------------------
 ;
 ; State Reset
@@ -82,10 +87,14 @@ nvm_bgm_reset:
 ; ------------------------------------------------------------------------------
 
 nvm_context_sfx_set:
+	ld	a, 01h
+	ld	(IsSfx), a
 	push	hl
 	ld	hl, SfxContext
 	jr	nvm_context_copy
 nvm_context_bgm_set:
+	xor	a
+	ld	(IsSfx), a
 	push	hl
 	ld	hl, BgmContext
 nvm_context_copy:
@@ -427,19 +436,7 @@ nvm_op_lfo:      ; 15
 	jp	nvm_exec.instructions_from_hl
 
 nvm_op_note_off: ; 18
-	ld	a, (iy+NVM.channel_id)
-	and	a
-	jp	p, .opn
-	xor	a
-	ld	(iy+NVMPSG.key_on), a  ; let envelope take care of the rest
-	jr	.done
-.opn:
-	ld	a, OPN_REG_KEYON
-	ld	(OPN_ADDR0), a  ; addr
-	ld	a, (iy+NVM.channel_id)
-	ld	(OPN_DATA0), a  ; data
-	ld	(iy+NVMOPN.now_block), 80h  ; Mark no portamento
-.done:
+	call	nvm_note_off_sub
 	jp	nvm_exec.instructions_from_hl
 
 nvm_op_slide:    ; 19
@@ -509,7 +506,20 @@ nvm_op_trn:      ; 25
 
 nvm_op_stop:     ; 18
 	ld	(iy+NVM.status), NVM_STATUS_INACTIVE
-	ret
+
+.note_off_mute_unset_load:
+	ld	a, 00h  ; to be replaced; this becomes "IsSfx"
+IsSfx = .note_off_mute_unset_load+1
+	and	a
+	jr	z, +
+	; If it's a sound effect, unmute corresponding channel.
+	xor	a
+	ld	h, (iy+NVMSFX.mute_ptr+1)
+	ld	l, (iy+NVMSFX.mute_ptr)
+	ld	(hl), a
++:
+
+	jr	nvm_note_off_sub
 
 nvm_op_trn_add:   ; 26
 	ld	a, (iy+NVM.transpose)
@@ -538,6 +548,22 @@ nvm_deref_hl_relative_offs_sub:
 	inc	hl
 	ld	b, (hl)
 	add	hl, bc
+	ret
+
+nvm_note_off_sub:
+
+	ld	a, (iy+NVM.channel_id)
+	and	a
+	jp	p, .opn
+	xor	a
+	ld	(iy+NVMPSG.key_on), a  ; let envelope take care of the rest
+	ret
+.opn:
+	ld	a, OPN_REG_KEYON
+	ld	(OPN_ADDR0), a  ; addr
+	ld	a, (iy+NVM.channel_id)
+	ld	(OPN_DATA0), a  ; data
+	ld	(iy+NVMOPN.now_block), 80h  ; Mark no portamento
 	ret
 
 ; ------------------------------------------------------------------------------
@@ -660,7 +686,7 @@ nvmopn_op_note:
 	exx  ; avoid pushing hl and bc
 
 	; a now holds note modified by transposition
-	ld	hl, nvmopn_freq_tbl
+	ld	hl, opn_freq_tbl
 	ld	e, a    ; offset freq tbl index with de
 	ld	d, 00h
 	add	hl, de
@@ -718,20 +744,6 @@ nvm_note_calc_transpose:
 	jr	.tpcheck
 .tpok:
 	ret
-
-nvmopn_freq_tbl:
-	dw	OPN_NOTE_C
-	dw	OPN_NOTE_Cs
-	dw	OPN_NOTE_D
-	dw	OPN_NOTE_Ds
-	dw	OPN_NOTE_E
-	dw	OPN_NOTE_F
-	dw	OPN_NOTE_Fs
-	dw	OPN_NOTE_G
-	dw	OPN_NOTE_Gs
-	dw	OPN_NOTE_A
-	dw	OPN_NOTE_As
-	dw	OPN_NOTE_B
 
 ; ------------------------------------------------------------------------------
 ;

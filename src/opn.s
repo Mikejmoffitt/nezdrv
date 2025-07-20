@@ -110,3 +110,17 @@ opn_set_patch:
 	dec	de
 	inc	hl
 	ret
+
+opn_freq_tbl:
+	dw	OPN_NOTE_C
+	dw	OPN_NOTE_Cs
+	dw	OPN_NOTE_D
+	dw	OPN_NOTE_Ds
+	dw	OPN_NOTE_E
+	dw	OPN_NOTE_F
+	dw	OPN_NOTE_Fs
+	dw	OPN_NOTE_G
+	dw	OPN_NOTE_Gs
+	dw	OPN_NOTE_A
+	dw	OPN_NOTE_As
+	dw	OPN_NOTE_B

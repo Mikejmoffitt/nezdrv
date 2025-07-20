@@ -41,6 +41,33 @@ nPcmDef macro filename
 .pcmend:
 	endm
 
+; Channel IDs.
+NVM_CHID_OPN0 = 0
+NVM_CHID_OPN1 = 1
+NVM_CHID_OPN2 = 2
+NVM_CHID_OPN3 = 3
+NVM_CHID_OPN4 = 4
+NVM_CHID_OPN5 = 5
+NVM_CHID_PSG0 = 6
+NVM_CHID_PSG1 = 7
+NVM_CHID_PSG2 = 8
+NVM_CHID_PSGN = 9
+; Alteranate names
+NVM_CHID_A = NVM_CHID_OPN0
+NVM_CHID_B = NVM_CHID_OPN1
+NVM_CHID_C = NVM_CHID_OPN2
+NVM_CHID_D = NVM_CHID_OPN3
+NVM_CHID_E = NVM_CHID_OPN4
+NVM_CHID_F = NVM_CHID_OPN5
+NVM_CHID_G = NVM_CHID_PSG0
+NVM_CHID_H = NVM_CHID_PSG1
+NVM_CHID_I = NVM_CHID_PSG2
+NVM_CHID_J = NVM_CHID_PSGN
+
+; The start of an SFX track must have a byte that indicates the channel number.
+nSfxChSet macro chid
+	db	chid
+	endm
 
 
 ; Sound engine instruction bytes.

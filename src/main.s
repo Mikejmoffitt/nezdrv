@@ -47,40 +47,19 @@ BgmPlaying = .bgm_playing_load+1
 	jp	nvm_bgm_reset
 +:
 	call	nvm_context_bgm_set
-	ld	b, OPN_BGM_CHANNEL_COUNT
-	ld	iy, NvmOpnBgm
-	ld	de, NVMOPN.len
+	ld	b, TOTAL_BGM_CHANNEL_COUNT
+	ld	iy, NvmBgm
+	ld	de, NVMBGM.len
 	call	nvm_poll
-	ld	b, PSG_BGM_CHANNEL_COUNT
-	ld	iy, NvmPsgBgm
-	ld	de, NVMPsg.len
-	jp	nvm_poll
 
 nez_run_sfx_sub:
 	ld	a, 0FFh
 	ld	(VblWaitFlag), a
 
 	call	nvm_context_sfx_set
-	ld	b, OPN_SFX_CHANNEL_COUNT
-	ld	iy, NvmOpnSfx
-	ld	de, NVMOPN.len
-	call	nvm_poll
-	ld	b, PSG_SFX_CHANNEL_COUNT
-	ld	iy, NvmPsgSfx
-	ld	de, NVMPSG.len
-	call	nvm_poll
 
-	; Update mute status of BGM channels
-	ld	a, (NvmOpnSfx+NVM.status+NVMOPN.len*0)
-	ld	(NvmOpnBgm+NVM.mute+NVMOPN.len*0), a
-	ld	a, (NvmOpnSfx+NVM.status+NVMOPN.len*1)
-	ld	(NvmOpnBgm+NVM.mute+NVMOPN.len*1), a
-	ld	a, (NvmOpnSfx+NVM.status+NVMOPN.len*2)
-	ld	(NvmOpnBgm+NVM.mute+NVMOPN.len*2), a
-	ld	a, (NvmPsgSfx+NVM.status+NVMPSG.len*0)
-	ld	(NvmPsgBgm+NVM.mute+NVMPSG.len*0), a
-	ld	a, (NvmPsgSfx+NVM.status+NVMPSG.len*1)
-	ld	(NvmPsgBgm+NVM.mute+NVMPSG.len*1), a
-	ld	a, (NvmPsgSfx+NVM.status+NVMPSG.len*2)
-	ld	(NvmPsgBgm+NVM.mute+NVMPSG.len*2), a
+	ld	b, SFX_CHANNEL_COUNT
+	ld	iy, NvmSfx
+	ld	de, NVMSFX.len
+	call	nvm_poll
 	ret

@@ -44,8 +44,8 @@ LAST_ORG	:=	$
 	include	"src/psg.s"
 	include	"src/nvm.s"
 
-NvmOpnSfx:             ds NVMOPN.len * OPN_SFX_CHANNEL_COUNT
-NvmPsgSfx:             ds NVMPSG.len * PSG_SFX_CHANNEL_COUNT
+NvmSfx:                ds NVMSFX.len * SFX_CHANNEL_COUNT
+NvmBgm:
 NvmOpnBgm:             ds NVMOPN.len * OPN_BGM_CHANNEL_COUNT
 NvmPsgBgm:             ds NVMPSG.len * PSG_BGM_CHANNEL_COUNT
 ; This is where user data (tracks, instruments, etc) lives.

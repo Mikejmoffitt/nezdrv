@@ -2,21 +2,15 @@
 ; Audio VM state 0 one channel
 ;
 
-; PSG and OPN effects need to match in count as a tiny optimization.
-SFX_CHANNEL_COUNT = 2
+SFX_CHANNEL_COUNT = 3
 
 ; Channels A-F
 OPN_BGM_CHANNEL_COUNT = 6
 ; Channels G-J
 PSG_BGM_CHANNEL_COUNT = 3
-; Channels KOM
-OPN_SFX_CHANNEL_COUNT = SFX_CHANNEL_COUNT
-; Channels N-P
-PSG_SFX_CHANNEL_COUNT = SFX_CHANNEL_COUNT
 
 TOTAL_BGM_CHANNEL_COUNT = OPN_BGM_CHANNEL_COUNT+PSG_BGM_CHANNEL_COUNT
-TOTAL_SFX_CHANNEL_COUNT = OPN_SFX_CHANNEL_COUNT+PSG_SFX_CHANNEL_COUNT
-TOTAL_CHANNEL_COUNT = TOTAL_BGM_CHANNEL_COUNT+TOTAL_SFX_CHANNEL_COUNT
+TOTAL_CHANNEL_COUNT = TOTAL_BGM_CHANNEL_COUNT+SFX_CHANNEL_COUNT
 
 NVM_STACK_DEPTH = 4
 ; Channel status
@@ -87,6 +81,7 @@ tgt_block:      ds 1
 
 NVMOPN endstruct
 
+
 ;
 ; PSG-specific channel state.
 ;
@@ -103,11 +98,28 @@ env_loop_ptr:   ds 2
 now_period:     ds 2
 tgt_period:     ds 2
 
+pad:            ds 4
+
 NVMPSG endstruct
 
+
+;
+; NVMBGM
+;
+; Basically an alias for storage purposes.
 	IF	NVMPSG.len <> NVMOPN.len
-;ERROR "PSG and OPN struct sizes differ!"
+	ERROR "PSG and OPN struct sizes differ!"
 	ENDIF
+
+NVMBGM struct
+nvmbase:        ds NVMOPN.len
+NVMBGM endstruct
+
+
+NVMSFX struct
+nvmbase:        ds NVM.len
+mute_ptr:       ds 2  ; Pointer to corresponding BGM channel mute field.
+NVMSFX endstruct
 
 NVMCONTEXT struct
 global_volume:       ds 1
