@@ -47,9 +47,6 @@ pcm_poll:
 	inc	de
 	ld	(PcmAddr), de
 .done:
-	nop
-	nop
-	nop
 	exx
 	ex	af, af'
 	ei
