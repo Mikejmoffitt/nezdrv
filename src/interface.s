@@ -55,12 +55,14 @@ nez_load_sfx_data:
 ; the data is just copied as-is, as it is already formatted correctly.
 ; the user buffer is advanced.
 nez_load_pcm_sample:
-	ld	de, (UserBufferLoadPtr)
+	ld	de, 6502h  ; Immediate replaced as UserBufferLoadPtr
 	rept	3
 	ldi
 	endm
 	ld	(UserBufferLoadPtr), de
 	ret
+
+UserBufferLoadPtr = nez_load_pcm_sample+1
 
 ; hl = track head
 ; clobbers de, a
