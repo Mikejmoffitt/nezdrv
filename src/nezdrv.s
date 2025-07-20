@@ -8,9 +8,9 @@
 	include	"src/macro.inc"
 	include	"src/memmap.inc"
 
-	include	"src/mailbox.inc"
 	include	"src/nvm.inc"
 	include	"src/nvm_format.inc"
+	include	"src/mailbox.inc"
 	include	"src/opn.inc"
 	org	0000h
 	include	"src/mem_misc.s"  ; Tiny memory overlay here
@@ -30,6 +30,7 @@ v_rst0:
 	include	"src/opn.s"
 	include	"src/psg.s"
 	include	"src/nvm.s"
+
 	include	"src/mem_context.s"
 
 NvmSfx:                ds NVMSFX.len * SFX_CHANNEL_COUNT
@@ -42,5 +43,9 @@ UserBuffer:
 
 	org NEZ_MAILBOX_ADDR
 MailBox:        ds NEZMB.len
+
+	IF	$ > Z80_RAM_BYTES
+	ERROR "Mailbox extends beyond Z80 memory!"
+	ENDIF
 
 

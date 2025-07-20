@@ -12,34 +12,57 @@ NEZ_PCMRATE_DEFAULT = 03FBh
 NEZ_TEMPO_DEFAULT = 0E0h
 NEZ_REST_LENGTH_DEFAULT = 12
 
+; Macro for making relative pointers within a track.
 nTrackRelPtr macro lbl
 	dw	lbl-NEZ_TRACK_BASE-2
 	endm
 
-nTrackListEnd macro
-	dw	0
-	endm
-
-nPcmRateEncode macro pcmrate
-	db	((pcmrate)>>2)
-	db	((pcmrate)&03h)
-	endm
-
-nTrackHeader macro endptr, pcmrate, temporate, tracklist, instrumentlist
+; Start marker for track / effect file.
+; pcmrate:         PCM playback rate (0 - 1023)
+; temporate:       Music base timer rate (0 - 255). Ignored for sound effects.
+; instrumentlists: Instrument list symbol name.
+;
+; This macro must be placed at the top of the file before any data.
+;
+nTrackHeader macro pcmrate, temporate, tracklist, instrumentlist
 NEZ_TRACK_BASE := $
-	nTrackRelPtr endptr
+	nTrackRelPtr NEZ_TRACK_END
 	nPcmRateEncode pcmrate
 	db	temporate
 	nTrackRelPtr tracklist
 	nTrackRelPtr instrumentlist
 	endm
 
+; End marker for track / effect data. This must be placed at the end, after all
+; data. This marker is necessary for the header's size field.
+nTrackFooter macro
+NEZ_TRACK_END := $
+	endm
+
+; List end marker (null terminator for the time being)
+nTrackListEnd macro
+	dw	0
+	endm
+
+; Macro to massage 10-bit timer value for use with Timer A register.
+nPcmRateEncode macro pcmrate
+	db	((pcmrate)>>2)
+	db	((pcmrate)&03h)
+	endm
+
+; Macro to include a PCM file and assign it a length marker.
 nPcmDef macro filename
 	dw	.pcmend-.pcmstart
 .pcmstart:
 	binclude	filename
 .pcmend:
 	endm
+
+; The start of an SFX track must have a byte that indicates the channel number.
+nSfxChSet macro chid
+	db	chid
+	endm
+
 
 ; Channel IDs.
 NVM_CHID_OPN0 = 0
@@ -52,7 +75,7 @@ NVM_CHID_PSG0 = 6
 NVM_CHID_PSG1 = 7
 NVM_CHID_PSG2 = 8
 NVM_CHID_PSGN = 9
-; Alteranate names
+; Alternate names
 NVM_CHID_A = NVM_CHID_OPN0
 NVM_CHID_B = NVM_CHID_OPN1
 NVM_CHID_C = NVM_CHID_OPN2
@@ -64,103 +87,9 @@ NVM_CHID_H = NVM_CHID_PSG1
 NVM_CHID_I = NVM_CHID_PSG2
 NVM_CHID_J = NVM_CHID_PSGN
 
-; The start of an SFX track must have a byte that indicates the channel number.
-nSfxChSet macro chid
-	db	chid
-	endm
-
-
-; Sound engine instruction bytes.
-
-; Jump
-NVM_JUMP     = 3*0
-; Call routine (+ 2 bytes)
-NVM_CALL     = 3*1
-; Return
-NVM_RET      = 3*2
-; Advance loop stack and set loop point (+ 1 byte for count)
-NVM_LOOPSET  = 3*3
-; End loop point (decrement and branch if loop counter is nonzero)
-NVM_LOOPEND  = 3*4
-; Set timer B value +1 byte
-NVM_TEMPO    = 3*5
-; Set note length (in note ticks) +1 byte
-NVM_LENGTH   = 3*6
-; Rest
-NVM_REST     = 3*7
-; Set octave +1 byte
-NVM_OCT      = 3*8
-; Increment octave
-NVM_OCT_UP   = 3*9
-; Decrement octave
-NVM_OCT_DOWN = 3*10
-; Set instrument  +1 byte = instrument (multiple of 2)
-NVM_INST     = 3*11
-; Set volume (inverse TL) +1 byte
-NVM_VOL      = 3*12
-; Set panning
-NVM_PAN      = 3*13
-; Set PMS
-NVM_PMS      = 3*14
-; Set AMS
-NVM_AMS      = 3*15
-; Set LFO
-NVM_LFO      = 3*16
-; Stop the channel.
-NVM_STOP     = 3*17
-; Note off
-NVM_NOTE_OFF = 3*18
-; Set portamento
-NVM_SLIDE    = 3*19
-; Set timer A value +2 bytes
-NVM_PCMRATE  = 3*20
-; Enable or disable PCM mode +1 byte (80h = enable)
-NVM_PCMMODE  = 3*21
-; Play a PCM sample by ID + 1 byte
-NVM_PCMPLAY  = 3*22
-; Stop PCM playback.
-NVM_PCMSTOP  = 3*23
-; Set arbitrary FM register  +2 bytes
-NVM_OPN_REG  = 3*24
-; Set transposition for the channel.
-NVM_TRN      = 3*25
-; Add to transposition.
-NVM_TRN_ADD  = 3*26
-; Subtract from transposition
-NVM_TRN_SUB  = 3*27
-
-; The note instructions allow the low nybble to be used as an offset into the
-; frequency table after masking with 1Fh.
-NVM_NOTE_C   = 80h
-NVM_NOTE_Cs  = 82h
-NVM_NOTE_D   = 84h
-NVM_NOTE_Ds  = 86h
-NVM_NOTE_E   = 88h
-NVM_NOTE_F   = 8Ah
-NVM_NOTE_Fs  = 8Ch
-NVM_NOTE_G   = 8Eh
-NVM_NOTE_Gs  = 90h
-NVM_NOTE_A   = 92h
-NVM_NOTE_As  = 94h
-NVM_NOTE_B   = 96h
-NVM_NOTE_LIM = 98h
-
-NVM_NOTE_Db  = NVM_NOTE_Cs
-NVM_NOTE_Eb  = NVM_NOTE_Ds
-NVM_NOTE_Gb  = NVM_NOTE_Fs
-NVM_NOTE_Ab  = NVM_NOTE_Gs
-NVM_NOTE_Bb  = NVM_NOTE_As
-
-; PSG macro commands.
-NVM_MACRO_END   = 0FFh
-NVM_MACRO_LPSET = 0FEh
-NVM_MACRO_LPEND = 0FDh  ; falls through on note off.
-
-; If a note command has bit 5 set (20h) then the next byte contains the rest
-; counter value to use instead of the one set for teh channel.
-NVM_NOTE_REST_FLAG = 20h
-; With bit 6 set, the new frequency is adopted, but the key state is unchanged.
-NVM_NOTE_NO_KEY_ON_FLAG = 40h
+;
+; Instruction Macros
+;
 
 ;
 ; Internal macros
@@ -401,3 +330,98 @@ nAb macro spcarg=0
 nBb macro spcarg=0
 	nAs spcarg
 	endm
+
+
+;
+; Sound engine instruction raw opcode bytes.
+;
+
+; Jump
+NVM_JUMP     = 3*0
+; Call routine (+ 2 bytes)
+NVM_CALL     = 3*1
+; Return
+NVM_RET      = 3*2
+; Advance loop stack and set loop point (+ 1 byte for count)
+NVM_LOOPSET  = 3*3
+; End loop point (decrement and branch if loop counter is nonzero)
+NVM_LOOPEND  = 3*4
+; Set timer B value +1 byte
+NVM_TEMPO    = 3*5
+; Set note length (in note ticks) +1 byte
+NVM_LENGTH   = 3*6
+; Rest
+NVM_REST     = 3*7
+; Set octave +1 byte
+NVM_OCT      = 3*8
+; Increment octave
+NVM_OCT_UP   = 3*9
+; Decrement octave
+NVM_OCT_DOWN = 3*10
+; Set instrument  +1 byte = instrument (multiple of 2)
+NVM_INST     = 3*11
+; Set volume (inverse TL) +1 byte
+NVM_VOL      = 3*12
+; Set panning
+NVM_PAN      = 3*13
+; Set PMS
+NVM_PMS      = 3*14
+; Set AMS
+NVM_AMS      = 3*15
+; Set LFO
+NVM_LFO      = 3*16
+; Stop the channel.
+NVM_STOP     = 3*17
+; Note off
+NVM_NOTE_OFF = 3*18
+; Set portamento
+NVM_SLIDE    = 3*19
+; Set timer A value +2 bytes
+NVM_PCMRATE  = 3*20
+; Enable or disable PCM mode +1 byte (80h = enable)
+NVM_PCMMODE  = 3*21
+; Play a PCM sample by ID + 1 byte
+NVM_PCMPLAY  = 3*22
+; Stop PCM playback.
+NVM_PCMSTOP  = 3*23
+; Set arbitrary FM register  +2 bytes
+NVM_OPN_REG  = 3*24
+; Set transposition for the channel.
+NVM_TRN      = 3*25
+; Add to transposition.
+NVM_TRN_ADD  = 3*26
+; Subtract from transposition
+NVM_TRN_SUB  = 3*27
+
+; The note instructions allow the low nybble to be used as an offset into the
+; frequency table after masking with 1Fh.
+NVM_NOTE_C   = 80h
+NVM_NOTE_Cs  = 82h
+NVM_NOTE_D   = 84h
+NVM_NOTE_Ds  = 86h
+NVM_NOTE_E   = 88h
+NVM_NOTE_F   = 8Ah
+NVM_NOTE_Fs  = 8Ch
+NVM_NOTE_G   = 8Eh
+NVM_NOTE_Gs  = 90h
+NVM_NOTE_A   = 92h
+NVM_NOTE_As  = 94h
+NVM_NOTE_B   = 96h
+NVM_NOTE_LIM = 98h
+
+NVM_NOTE_Db  = NVM_NOTE_Cs
+NVM_NOTE_Eb  = NVM_NOTE_Ds
+NVM_NOTE_Gb  = NVM_NOTE_Fs
+NVM_NOTE_Ab  = NVM_NOTE_Gs
+NVM_NOTE_Bb  = NVM_NOTE_As
+
+; PSG macro commands.
+NVM_MACRO_END   = 0FFh
+NVM_MACRO_LPSET = 0FEh
+NVM_MACRO_LPEND = 0FDh  ; falls through on note off.
+
+; If a note command has bit 5 set (20h) then the next byte contains the rest
+; counter value to use instead of the one set for teh channel.
+NVM_NOTE_REST_FLAG = 20h
+; With bit 6 set, the new frequency is adopted, but the key state is unchanged.
+NVM_NOTE_NO_KEY_ON_FLAG = 40h

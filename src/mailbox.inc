@@ -140,7 +140,9 @@ cmd:	ds 1
 volume:  ; overlay for vol commands
 bank:	ds 1
 ptr:	ds 2
-pad:	ds 9
+pad:	ds 4
+sfx:	ds SFX_CHANNEL_COUNT
+pad2:	ds 2
 sig:	ds 3  ; 'NEZ' to tell the 68k side we're ready.
 NEZMB ends
 

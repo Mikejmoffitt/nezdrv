@@ -20,7 +20,7 @@ mailbox_handle_cmd:
 	jp	mbcmd_load_pcm         ; NEZ_CMD_LOAD_PCM
 	jp	mbcmd_load_bgm         ; NEZ_CMD_LOAD_BGM
 	jp	mbcmd_pause_bgm        ; NEZ_CMD_PAUSE_BGM
-	jp	mbcmd_resume_bgm        ; NEZ_CMD_RESUME_BGM
+	jp	mbcmd_resume_bgm       ; NEZ_CMD_RESUME_BGM
 	jp	mbcmd_stop_bgm         ; NEZ_CMD_STOP_BGM
 	jp	mbcmd_stop_sfx         ; NEZ_CMD_STOP_SFX
 	jp	mbcmd_set_volume_sfx   ; NEZ_CMD_SET_VOLUME_SFX
