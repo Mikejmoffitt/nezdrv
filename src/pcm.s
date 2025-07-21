@@ -1,5 +1,5 @@
 ;
-; pcm_poll is at 8 so it may be called by `rst pcm_poll`.
+; pcm_poll is aligned to 8 so it may be called by `rst pcm_poll`.
 ;
 
 ; trashes a, flags
@@ -24,10 +24,6 @@ pcm_poll:
 	rrca  ; Timer A status bit goes into carry
 	ret nc
 
-	di
-	exx
-	ex	af, af'
-
 	; Ack timer
 	ld	hl, OPN_ADDR0
 	ld	(hl), OPN_REG_TCTRL
@@ -46,15 +42,10 @@ pcm_poll:
 	ld	(hl), a
 	inc	de
 	ld	(PcmAddr), de
-.done:
-	exx
-	ex	af, af'
-	ei
-
 	ret
 
 .finished:
 	pcm_poll_disable
-	jr	pcm_poll.done
+	ret
 
 PcmAddr = .pcmaddr_load+1

@@ -220,8 +220,8 @@ nvm_context_copy:
 	ld	de, CurrentContext
 	ld	bc, NVMCONTEXT.len
 	ldir
-	pop	hl
 	pcm_service
+	pop	hl
 	ret
 
 ; ------------------------------------------------------------------------------

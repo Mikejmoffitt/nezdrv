@@ -34,7 +34,7 @@ mailbox_handle_cmd:
 	jp	mbcmd_done             ; NEZ_CMD_READY
 	jp	mbcmd_load_sfx         ; NEZ_CMD_LOAD_SFX
 	jp	mbcmd_load_pcm         ; NEZ_CMD_LOAD_PCM
-	jp	mbcmd_load_bgm         ; NEZ_CMD_LOAD_BGM
+	jp	mbcmd_play_bgm         ; NEZ_CMD_PLAY_BGM
 	jp	mbcmd_pause_bgm        ; NEZ_CMD_PAUSE_BGM
 	jp	mbcmd_resume_bgm       ; NEZ_CMD_RESUME_BGM
 	jp	mbcmd_stop_bgm         ; NEZ_CMD_STOP_BGM
@@ -42,7 +42,7 @@ mailbox_handle_cmd:
 	jp	mbcmd_set_volume_sfx   ; NEZ_CMD_SET_VOLUME_SFX
 	jp	mbcmd_set_volume_bgm   ; NEZ_CMD_SET_VOLUME_BGM
 
-mbcmd_load_bgm:          ; NEZ_CMD_LOAD_BGM
+mbcmd_play_bgm:          ; NEZ_CMD_LOAD_BGM
 	push	hl
 	call	nvm_bgm_reset
 	pop	hl
@@ -56,7 +56,7 @@ mbcmd_load_bgm:          ; NEZ_CMD_LOAD_BGM
 	pop	hl
 
 	; Move playing state into BgmPlaying.
-	ld	a, (hl)
+	ld	a, 01h
 .play_commit:
 	ld	(BgmPlaying), a
 	jp	mbcmd_done
@@ -79,16 +79,16 @@ mbcmd_load_pcm:          ; NEZ_CMD_LOAD_PCM
 mbcmd_resume_bgm:        ; NEZ_CMD_RESUME_BGM
 	ld	a, (BgmPlaying)
 	and	a, 7Fh
-	jr	mbcmd_load_bgm.play_commit
+	jr	mbcmd_play_bgm.play_commit
 
 mbcmd_pause_bgm:        ; NEZ_CMD_PAUSE_BGM
 	ld	a, (BgmPlaying)
 	or	a, 80h
-	jr	mbcmd_load_bgm.play_commit
+	jr	mbcmd_play_bgm.play_commit
 
 mbcmd_stop_bgm:         ; NEZ_CMD_STOP_BGM
 	xor	a
-	jr	mbcmd_load_bgm.play_commit
+	jr	mbcmd_play_bgm.play_commit
 
 mbcmd_stop_sfx:         ; NEZ_CMD_STOP_SFX
 	; TODO
