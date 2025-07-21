@@ -118,8 +118,6 @@ SfxTrackListPtr = nvm_sfx_play_by_cue+1
 ;      hl = track head (first byte is the channel ID);
 nvm_sfx_play:
 	; Set up the SFX loop for the first run, where we want a channel match.
-	ld	a, 28h  ; jr z first byte.
-	ld	(.sfx_check_instruction), a
 	ld	d, 00h
 	ld	a, (hl)
 	ld	e, a  ; desired channel ID index
@@ -128,39 +126,45 @@ nvm_sfx_play:
 	ld	hl, nvm_channel_id_tbl
 	add	hl, de
 	ld	a, (hl)  ; A now contains the desired channel ID itself.
+	ld	c, a     ; get channel id in C.
 	; Search for an active SFX channel with the same ID, and replace it.
 	ld	b, SFX_CHANNEL_COUNT
 	ld	iy, NvmSfx
 	ld	de, NVMSFX.len
 .loop_sfx:
-	ld	c, (iy+NVM.status)
-	and	c
-	jr	z, .next_sfx  ; inactive channel.
+	ld	a, (iy+NVM.status)
+	and	a
+	jr	z, +  ; inactive channel.
+	ld	a, c
 	cp	(iy+NVM.channel_id)
-.sfx_check_instruction:
 	jr	z, .found_channel
-.next_sfx:
++:
 	djnz	.loop_sfx
-	; If we didn't find one, just find an open one. Modify the loop so that
-	; the found channel case is hit just if the channel is open.
-	ld	c, a  ; back up channel ID
-	ld	a, (.sfx_check_instruction)
-	cp	28h
-	ret	nz  ; If it's the second go, give up - no free channels.
-	ld	a, 18h  ; jr unconditional.
-	ld	(.sfx_check_instruction), a
-	ld	a, c  ; restore channel ID
+	; If we didn't find one, just find an open one.
+
+	ld	b, SFX_CHANNEL_COUNT
+	ld	iy, NvmSfx
+	ld	de, NVMSFX.len
+.loop_sfx2:
+	ld	a, (iy+NVM.status)
+	and	a
+	jr	z, .found_channel
+	cp	(iy+NVM.channel_id)
+	jr	z, .found_channel
++:
+	djnz	.loop_sfx2
+	ret  ; no open channels; just give up at this point.
 
 ; An open SFX channel has been found - initialize it and store the channel ID.
 .found_channel:
+	ld	a, c
+	; Assign channel ID first
+	ld	(iy+NVM.channel_id), a  ; record desired channel id
 	di
-	ex	af, af'
 	call	nvm_reset_by_type_sub
-	ex	af, af'
 	ei
 
 	; assign channel ID and track head, and mark as active.
-	ld	(iy+NVM.channel_id), a  ; record desired channel id
 	pop	hl
 	ld	(iy+NVM.pc+1), h
 	ld	(iy+NVM.pc), l
@@ -172,6 +176,7 @@ nvm_sfx_play:
 	ld	b, TOTAL_BGM_CHANNEL_COUNT
 	ld	ix, NvmBgm
 	ld	de, NVMBGM.len
+	ld	a, c
 .loop_bgm:
 	cp	(ix+NVM.channel_id)
 	jr	z, .found_matching_bgm
@@ -465,7 +470,11 @@ nvm_op_inst:     ;
 	ld	d, (hl)
 	ld	(iy+NVM.instrument_ptr+1), d
 
+	ld	a, (iy+NVM.mute)
+	and	a
+	jp	m, .skipload
 	call	nvm_load_inst
+.skipload:
 	pop	hl
 	jp	nvm_exec.instructions_from_hl
 
@@ -635,6 +644,10 @@ nvm_store_hl_pc_sub:
 	ret
 
 nvm_note_off_sub:
+	ld	a, (iy+NVM.mute)
+	and	a
+	ret	m  ; return if muted (NVM_MUTE_MUTED)
+
 	ld	a, (iy+NVM.channel_id)
 	and	a
 	jp	p, .opn
@@ -650,6 +663,11 @@ nvm_note_off_sub:
 	ret
 
 nvmopn_set_mod_sub:
+	ld	a, (iy+NVM.mute)
+	and	a
+	ret	m  ; return if muted (NVM_MUTE_MUTED)
+
+.direct:
 	ld	a, (iy+NVM.channel_id)
 	call	opn_set_base_de_sub
 	add	a, OPN_REG_MOD
@@ -820,9 +838,12 @@ nvmpsg_op_note:
 
 nvmopn_op_note:
 	; Volume modulation
-	call	nvmopn_tlmod
+	ld	a, (iy+NVM.mute)
+	and	a
+	jp	m, +
 	; Set pan control
-	call	nvmopn_set_mod_sub
+	call	nvmopn_set_mod_sub.direct
++:
 
 	; key event set
 

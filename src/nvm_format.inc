@@ -254,6 +254,20 @@ nTrnSub	macro trnval
 	db	NVM_TRN_SUB, trnval*2
 	endm
 
+nSwpUp	macro speed
+	nSlide	speed
+	nOct	7
+	db	NVM_NOTE_B | NVM_NOTE_NO_KEY_ON_FLAG | NVM_NOTE_REST_FLAG
+	db	0
+	endm
+
+nSwpDn	macro speed
+	nSlide	speed
+	nOct	0
+	db	NVM_NOTE_C | NVM_NOTE_NO_KEY_ON_FLAG | NVM_NOTE_REST_FLAG
+	db	0
+	endm
+
 nNote macro noteval, spcarg
 	IF (spcarg) > 0
 	db	noteval | NVM_NOTE_REST_FLAG | ((spcarg)>>8)
