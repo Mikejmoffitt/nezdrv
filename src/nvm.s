@@ -175,6 +175,7 @@ nvm_sfx_play:
 .loop_bgm:
 	cp	(ix+NVM.channel_id)
 	jr	z, .found_matching_bgm
+	add	ix, de
 	djnz	.loop_bgm
 	; We should never reach this point without a matching channel.
 .found_matching_bgm:
@@ -186,7 +187,7 @@ nvm_sfx_play:
 	ld	(iy+NVMSFX.mute_ptr+1), h
 	ld	(iy+NVMSFX.mute_ptr), l
 	; Go ahead and mute it too.
-	ld	(hl), 01h
+	ld	(hl), NVM_MUTE_MUTED
 	ret
 
 ; ------------------------------------------------------------------------------
@@ -463,49 +464,8 @@ nvm_op_inst:     ;
 	inc	hl
 	ld	d, (hl)
 	ld	(iy+NVM.instrument_ptr+1), d
-	; only OPN needs to talk to hardware here.
-	ld	a, (iy+NVM.channel_id)
-	and	a   ; test for PSG (channel id >= 80h)
-	jp	p, .opn_apply
-	; PSG just needs to set the envelope ptr.
-	ld	a, (iy+NVM.instrument_ptr+0)
-	ld	(iy+NVMPSG.env_ptr+0), a
-	ld	a, (iy+NVM.instrument_ptr+1)
-	ld	(iy+NVMPSG.env_ptr+1), a
-	pop	hl
-	jp	nvm_exec.instructions_from_hl
 
-.opn_apply:
-	; pull con data.
-	IF	OPNPATCH.con_fb == 0  ; this is how I avoid self-owning later
-	ld	a, (de)  ; OPNPATCh begins with con_fb
-	ELSE
-	ld	hl, OPNPATCH.con_fb
-	add	hl, de  ; hl := source fb data
-	ld	a, (hl)
-	ENDIF  ; OPNPATCH.con_fb == 0
-	and	a, 07h
-	add	a, a
-	ld	(iy+NVMOPN.tl_conoffs), a
-	; pull TL data.
-	ld	hl, OPNPATCH.tl
-	add	hl, de  ; hl := source TL data
-	ld	a, (hl)
-	ld	(iy+NVMOPN.tl+0), a
-	inc	hl
-	ld	a, (hl)
-	ld	(iy+NVMOPN.tl+1), a
-	inc	hl
-	ld	a, (hl)
-	ld	(iy+NVMOPN.tl+2), a
-	inc	hl
-	ld	a, (hl)
-	ld	(iy+NVMOPN.tl+3), a
-	; write the patch to the OPN
-	ld	de, 10000h-OPNPATCH.tl-3  ; why is there no 16-bit sub???
-	add	hl, de  ; wind hl back to the patch start
-	ld	a, (iy+NVM.channel_id)
-	call	opn_set_patch
+	call	nvm_load_inst
 	pop	hl
 	jp	nvm_exec.instructions_from_hl
 
@@ -627,12 +587,10 @@ IsSfx = .note_off_mute_unset_load+1
 	and	a
 	jr	z, +
 	; If it's a sound effect, unmute corresponding channel.
-	xor	a
 	ld	h, (iy+NVMSFX.mute_ptr+1)
 	ld	l, (iy+NVMSFX.mute_ptr)
-	ld	(hl), a
+	ld	(hl), NVM_MUTE_RESTORED  ; marker for "unmuted, please reload instrument"
 +:
-
 	jr	nvm_note_off_sub
 
 ;
@@ -700,6 +658,53 @@ nvmopn_set_mod_sub:
 	ld	a, (iy+NVMOPN.pan)
 	ld	(de), a  ; final pan data from before
 	ret
+
+; in:
+;      de = instrument patch
+;      iy = NVM head
+nvm_load_inst:
+	; only OPN needs to talk to hardware here.
+	ld	a, (iy+NVM.channel_id)
+	and	a   ; test for PSG (channel id >= 80h)
+	jp	p, .opn_apply
+	; PSG just needs to set the envelope ptr.
+	ld	a, (iy+NVM.instrument_ptr+0)
+	ld	(iy+NVMPSG.env_ptr+0), a
+	ld	a, (iy+NVM.instrument_ptr+1)
+	ld	(iy+NVMPSG.env_ptr+1), a
+	ret
+
+.opn_apply:
+	; pull con data.
+	IF	OPNPATCH.con_fb == 0  ; this is how I avoid self-owning later
+	ld	a, (de)  ; OPNPATCh begins with con_fb
+	ELSE
+	ld	hl, OPNPATCH.con_fb
+	add	hl, de  ; hl := source fb data
+	ld	a, (hl)
+	ENDIF  ; OPNPATCH.con_fb == 0
+	and	a, 07h
+	add	a, a
+	ld	(iy+NVMOPN.tl_conoffs), a
+	; pull TL data.
+	ld	hl, OPNPATCH.tl
+	add	hl, de  ; hl := source TL data
+	ld	a, (hl)
+	ld	(iy+NVMOPN.tl+0), a
+	inc	hl
+	ld	a, (hl)
+	ld	(iy+NVMOPN.tl+1), a
+	inc	hl
+	ld	a, (hl)
+	ld	(iy+NVMOPN.tl+2), a
+	inc	hl
+	ld	a, (hl)
+	ld	(iy+NVMOPN.tl+3), a
+	; write the patch to the OPN
+	ld	de, 10000h-OPNPATCH.tl-3  ; why is there no 16-bit sub???
+	add	hl, de  ; wind hl back to the patch start
+	ld	a, (iy+NVM.channel_id)
+	jp	opn_set_patch
 
 ; ------------------------------------------------------------------------------
 ;
@@ -1032,12 +1037,26 @@ nvm_sub_a_from_hl_sub:
 ; ------------------------------------------------------------------------------
 
 nvm_update_output:
+	; Restore instrument information if appropriate.
+	ld	a, (iy+NVM.mute)
+	cp	NVM_MUTE_RESTORED
+	jr	nz, +
+	ld	d, (iy+NVM.instrument_ptr+1)
+	ld	e, (iy+NVM.instrument_ptr)
+	call	nvm_load_inst
+	ld	(iy+NVM.mute), NVM_MUTE_NONE
++:
 	ld	a, (iy+NVM.channel_id)
 	and	a
 	jp	p, nvmopn_update_output
 
 nvmpsg_update_output:
 	call	nvmpsg_env_sub
+
+	ld	a, (iy+NVM.mute)
+	and	a
+	ret	m  ; return if muted (NVM_MUTE_MUTED)
+
 	xor	0Fh  ; convert volume to attenuation.
 	add	a, (iy+NVM.volume)
 	cp	10h
@@ -1122,9 +1141,9 @@ nvmpsg_env_sub:
 ; iy = channel struct
 ; if a key is pending, handles key off/on cycle.
 nvmopn_update_output:
-	ld	a, (iy+NVM.status)
+	ld	a, (iy+NVM.mute)
 	and	a
-	ret	m  ; return if muted.
+	ret	m  ; return if muted (NVM_MUTE_MUTED)
 	ld	a, (iy+NVMOPN.key_pending)
 	and	a
 	jr	z, .express_freq_sub

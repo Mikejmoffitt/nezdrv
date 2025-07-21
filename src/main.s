@@ -9,6 +9,8 @@ mainloop:
 	ld	a, (MailBox+NEZMB.cmd)
 	and	a
 	call	nz, mailbox_handle_cmd
+	pcm_service  ; status exists in a and carry
+	call	mailbox_update_sfx
 
 .vbl_flag_load:
 	ld	a, 0FFh  ; to be overwritten as VblWaitFlag.

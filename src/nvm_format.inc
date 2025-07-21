@@ -59,7 +59,7 @@ nPcmDef macro filename
 	endm
 
 ; The start of an SFX track must have a byte that indicates the channel number.
-nSfxChSet macro chid
+nSfxCh macro chid
 	db	chid
 	endm
 

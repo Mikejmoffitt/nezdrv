@@ -4,6 +4,27 @@ mailbox_init:
 	call	mem_clear_sub
 	ret
 
+mailbox_update_sfx:
+	ld	hl, MailBox+NEZMB.sfx
+	ld	b, SFX_CHANNEL_COUNT
+.loop:
+	ld	a, (hl)
+	and	a
+	jr	z, .next
+	push	bc
+	push	hl
+	dec	a
+	call	nvm_sfx_play_by_cue
+	pop	hl
+	pop	bc
+	xor	a
+	ld	(hl), a
+.next:
+	inc	hl
+	djnz	.loop
+	ret
+
+
 mailbox_handle_cmd:
 	ld	hl, MailBox+1  ; pass by command
 	ld	b, a

@@ -24,6 +24,10 @@ NVM_REST_DEFAULT = 12
 
 NVM_BLOCK_PORTAMENTO_SKIP_FLAG = 80h
 
+NVM_MUTE_NONE     = 00h
+NVM_MUTE_RESTORED = 01h
+NVM_MUTE_MUTED    = 80h
+
 	align	10h
 ;
 ; NEZDRV channel VM memory state.
@@ -117,7 +121,7 @@ NVMBGM endstruct
 
 
 NVMSFX struct
-nvmbase:        ds NVM.len
+nvmbase:        ds NVMBGM.len
 mute_ptr:       ds 2  ; Pointer to corresponding BGM channel mute field.
 NVMSFX endstruct
 
