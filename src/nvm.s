@@ -93,9 +93,29 @@ nvm_bgm_reset:
 ; Assigns and plays a sound effect, muting the equivalent BGM channel.
 ;
 ; in:
-;      hl = track head (first byte is the channel ID);
+;      a = cue ID
 ;
 ; ------------------------------------------------------------------------------
+
+nvm_sfx_play_by_cue:
+	ld	hl, 6502h  ; Immediate replaced as SfxTrackListPtr
+	add	a, a  ; word index
+	ld	d, 00h
+	ld	e, a
+	add	hl, de
+	ld	e, (hl)
+	inc	hl
+	ld	d, (hl)
+	ex	de, hl
+	; fall-through to nvm_sfx_play with track head in hl.
+
+SfxTrackListPtr = nvm_sfx_play_by_cue+1
+
+;
+; Plays the sound effect track marked in hl.
+;
+; in:
+;      hl = track head (first byte is the channel ID);
 nvm_sfx_play:
 	; Set up the SFX loop for the first run, where we want a channel match.
 	ld	a, 28h  ; jr z first byte.
@@ -509,15 +529,8 @@ nvm_op_pan_commit_mask_a:
 	and	a, (iy+NVMOPN.pan)
 	or	a, (hl)
 	inc	hl
-	ld	b, a
 	ld	(iy+NVMOPN.pan), a
-	ld	a, (iy+NVM.channel_id)
-	call	opn_set_base_de_sub
-	add	a, OPN_REG_MOD
-	ld	(de), a
-	inc	de
-	ld	a, b
-	ld	(de), a  ; final pan data from before
+	call	nvmopn_set_mod_sub
 	jp	nvm_exec.instructions_from_hl
 
 nvm_op_pms:      ; 14
@@ -559,7 +572,8 @@ nvm_op_pcmplay:  ; 22
 	ld	e, (hl)
 	inc	hl
 	push	hl
-	ld	hl, (PcmListPtr)
+.pcm_list_ptr_load:
+	ld	hl, 6502h ; Immedaite replaced as PcmListPtr
 	add	hl, de  ; += pcm id offset
 	ld	a, (hl)
 	call	bank_set
@@ -579,6 +593,8 @@ nvm_op_pcmplay:  ; 22
 	pcm_poll_enable
 	pop	hl
 	jp	nvm_exec.instructions_from_hl
+
+PcmListPtr = .pcm_list_ptr_load+1
 
 nvm_op_pcmstop:  ; 23
 	pcm_poll_disable
@@ -673,6 +689,16 @@ nvm_note_off_sub:
 	ld	a, (iy+NVM.channel_id)
 	ld	(OPN_DATA0), a  ; data
 	ld	(iy+NVMOPN.now_block), 80h  ; Mark no portamento
+	ret
+
+nvmopn_set_mod_sub:
+	ld	a, (iy+NVM.channel_id)
+	call	opn_set_base_de_sub
+	add	a, OPN_REG_MOD
+	ld	(de), a
+	inc	de
+	ld	a, (iy+NVMOPN.pan)
+	ld	(de), a  ; final pan data from before
 	ret
 
 ; ------------------------------------------------------------------------------
@@ -790,6 +816,8 @@ nvmpsg_op_note:
 nvmopn_op_note:
 	; Volume modulation
 	call	nvmopn_tlmod
+	; Set pan control
+	call	nvmopn_set_mod_sub
 
 	; key event set
 

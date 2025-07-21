@@ -5,6 +5,10 @@ start:
 	call	mailbox_init
 	im	1
 	ei
+	ld	bc, 6
+	ld	hl, sig_str
+	ld	de, nez_signature
+	ldir
 	jp	mainloop
 
 mem_clear_sub:

@@ -1,12 +1,7 @@
 mailbox_init:
 	ld	hl, MailBox
-	ld	bc, NEZMB.len-3-1
+	ld	bc, NEZMB.len-1
 	call	mem_clear_sub
-	ld	(hl), 'N'
-	inc	hl
-	ld	(hl), 'E'
-	inc	hl
-	ld	(hl), 'Z'
 	ret
 
 mailbox_handle_cmd:

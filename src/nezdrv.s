@@ -12,14 +12,16 @@
 	include	"src/nvm_format.inc"
 	include	"src/mailbox.inc"
 	include	"src/opn.inc"
+
 	org	0000h
-	include	"src/mem_misc.s"  ; Tiny memory overlay here
-	org	0000h
+nez_signature:  ; after startup is complete, three bytes become 'NEZ'
 v_rst0:
 	di                           ; 1 byte
 	ld	sp, NEZ_MAILBOX_ADDR ; 3 bytes
 	jp	start                ; 3 bytes
 	include	"src/pcm.s"
+sig_str:
+	db	"NEZDRV"
 	include	"src/irq.s"
 	include	"src/startup.s"
 	include	"src/nvm_init.s"

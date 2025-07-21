@@ -53,13 +53,13 @@ NEZ_CMD_STOP_SFX       = 7
 NEZ_CMD_SET_VOLUME_SFX = 8
 NEZ_CMD_SET_VOLUME_BGM = 9
 
-; The last three bytes are used for the sound driver to indicate it has fully
+; The first three bytes are used for the sound driver to indicate it has fully
 ; initialized itself. After initializing the driver, check that the following
 ; bytes contain the expected values:
 
-; 1FFDh = 'N'
-; 1FFEh = 'E'
-; 1FFFh = 'Z'
+; 0000h = 'N'
+; 0001h = 'E'
+; 0002h = 'Z'
 
 ; ------------------------------------------------------------------------------
 ;
@@ -142,8 +142,6 @@ bank:	ds 1
 ptr:	ds 2
 pad:	ds 4
 sfx:	ds SFX_CHANNEL_COUNT
-pad2:	ds 2
-sig:	ds 3  ; 'NEZ' to tell the 68k side we're ready.
 NEZMB ends
 
-NEZ_MAILBOX_ADDR = Z80_RAM_BYTES-NEZMB.len
+NEZ_MAILBOX_ADDR = Z80_RAM_BYTES-0010h
