@@ -18,9 +18,9 @@ VblWaitFlag = .vbl_flag_load+1
 	and	a
 	call	z, nez_run_sfx_sub
 	; Wait for timer events.
-	pcm_service  ; status exists in a and carry
-	rrca  ; test bit B
-	jr	nc, mainloop
+	ld	a, (OPN_BASE)
+	and	02h
+	jr	z, mainloop
 
 	; Ack timer B
 	ld	hl, OPN_BASE

@@ -1,4 +1,6 @@
 start:
+	di                           ; 1 byte
+	ld	sp, NEZ_MAILBOX_ADDR ; 3 bytes
 	call	opn_reset
 	call	psg_reset
 	call	nvm_init

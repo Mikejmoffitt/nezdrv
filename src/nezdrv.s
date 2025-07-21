@@ -16,12 +16,10 @@
 	org	0000h
 nez_signature:  ; after startup is complete, three bytes become 'NEZ'
 v_rst0:
-	di                           ; 1 byte
-	ld	sp, NEZ_MAILBOX_ADDR ; 3 bytes
-	jp	start                ; 3 bytes
-	include	"src/pcm.s"
+	jr	start                ; 2 bytes
 sig_str:
 	db	"NEZDRV"
+	include	"src/pcm.s"
 	include	"src/irq.s"
 	include	"src/startup.s"
 	include	"src/nvm_init.s"
@@ -32,7 +30,6 @@ sig_str:
 	include	"src/opn.s"
 	include	"src/psg.s"
 	include	"src/nvm.s"
-
 	include	"src/mem_context.s"
 
 NvmSfx:                ds NVMSFX.len * SFX_CHANNEL_COUNT

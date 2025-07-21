@@ -4,8 +4,6 @@
 
 ; trashes a, flags
 pcm_service macro
-	ld	a, (OPN_BASE)
-	rrca  ; Timer A status bit goes into carry
 	rst	pcm_poll
 	endm
 
@@ -15,15 +13,16 @@ pcm_poll_disable macro
 	endm
 
 pcm_poll_enable macro
-	ld	a, 0D0h  ; ret NC
+	ld	a, 3Ah  ; ld a, (NN)
 	ld	(pcm_poll), a
 	endm
 
 ; The technique here is cribbed from Echo. Thanks
 	align	08h
 pcm_poll:
-	; set to C9h for ret if PCM is not playing and D0h for ret NC when in use.
-	ret
+	ld	a, (OPN_BASE)
+	rrca  ; Timer A status bit goes into carry
+	ret nc
 
 	di
 	exx
