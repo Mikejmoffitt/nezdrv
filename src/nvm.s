@@ -1074,9 +1074,11 @@ nvm_update_output:
 nvmpsg_update_output:
 	call	nvmpsg_env_sub
 
+	ld	c, a
 	ld	a, (iy+NVM.mute)
 	and	a
 	ret	m  ; return if muted (NVM_MUTE_MUTED)
+	ld	a, c
 
 	xor	0Fh  ; convert volume to attenuation.
 	add	a, (iy+NVM.volume)
