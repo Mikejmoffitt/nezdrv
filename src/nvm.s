@@ -837,11 +837,11 @@ nvmpsg_op_note:
 	jp	nvm_op_note_setrest
 
 nvmopn_op_note:
-	; Volume modulation
+	; Volume and pan control
 	ld	a, (iy+NVM.mute)
 	and	a
 	jp	m, +
-	; Set pan control
+	call	nvmopn_tlmod
 	call	nvmopn_set_mod_sub.direct
 +:
 
