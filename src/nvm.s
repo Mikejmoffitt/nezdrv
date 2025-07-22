@@ -277,6 +277,7 @@ nvm_exec:
 	ret
 
 .instructions_from_pc:
+	pcm_service
 	; Time for instructions
 	ld	h, (iy+NVM.pc+1)
 	ld	l, (iy+NVM.pc)
@@ -489,6 +490,13 @@ nvm_op_vol:      ; 12
 	and	a, (hl)
 	ld	(iy+NVM.volume), a
 	inc	hl
+	; OPN needs a TL update
+	ld	a, (iy+NVM.channel_id)  ; bit 7 if PSG
+	or	a, (iy+NVM.mute)        ; bit 7 if muted
+	and	a
+	jp	m, +
+	call	nvmopn_tlmod
++
 	jp	nvm_exec.instructions_from_hl
 
 nvm_op_pan:      ; 13
@@ -747,35 +755,32 @@ nvmopn_tlmod:
 	ld	c, a
 
 tlmod macro opno
-	ld	a, (iy+NVMOPN.tl+opno)
+	ld	a, (iy+NVMOPN.tl+(opno))
 	call	.limit_sub
 	ld	i, a
-	ld	a, OPN_REG_TL+(4*opno)
+	ld	a, OPN_REG_TL+(4*(opno))
 	call	.write_sub
 	endm
 
 	; Modify tl. Must leave B alone for use afterwards.
 	ld	a, (iy+NVMOPN.tl_conoffs)
 	jptbl_dispatch
-	jr	.note_volmod_op4
-	jr	.note_volmod_op4
-	jr	.note_volmod_op4
-	jr	.note_volmod_op4
-	jr	.note_volmod_op24
-	jr	.note_volmod_op234
-	jr	.note_volmod_op234
-	jr	.note_volmod_op1234
-.note_volmod_op24:
-	tlmod	1
-	jr	.note_volmod_op4
-.note_volmod_op1234:
-	tlmod	0
-.note_volmod_op234:
-	tlmod	1
-.note_volmod_op34:
-	tlmod	2
-.note_volmod_op4:
-	tlmod	3
+	jr	.note_volmod_op_4
+	jr	.note_volmod_op_4
+	jr	.note_volmod_op_4
+	jr	.note_volmod_op_4
+	jr	.note_volmod_op_3_and_4
+	jr	.note_volmod_op_all_but_1
+	jr	.note_volmod_op_all_but_1
+	jr	.note_volmod_op_all
+.note_volmod_op_all:  ; all operators
+	tlmod	1-1
+.note_volmod_op_all_but_1:  ; all but 1
+	tlmod	2-1
+.note_volmod_op_3_and_4:
+	tlmod	3-1
+.note_volmod_op_4:
+	tlmod	4-1
 
 	ret
 
