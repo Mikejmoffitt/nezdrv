@@ -1114,7 +1114,7 @@ nvmpsg_update_output:
 	jr	nz, +
 	ld	a, 0C0h  ; CH3 address base
 +:
-	ld	.chid_orval+1, a
+	ld	(.chid_orval+1), a
 
 ;	or	a, (iy+NVM.channel_id)  ; register
 	ld	h, (iy+NVMPSG.now_period+1)
@@ -1139,7 +1139,7 @@ nvmpsg_update_output:
 	ld	(hl), a  ; high data
 	ret
 
-NoiseModeCheck: nvmpsg_update_output.noisecheck_cp+1
+NoiseModeCheck = nvmpsg_update_output.noisecheck_cp+1
 
 ; returns in A the attenuation value to set.
 nvmpsg_env_sub:
