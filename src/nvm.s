@@ -1,7 +1,9 @@
+;
+
 
 nvm_channel_id_tbl:  ; These correspond to register offsets.
-	db	0, 1, 2, 4, 5, 6
-	db	80h, 0A0h, 0C0h, 0E0h
+	db	0, 1, 2, 4, 5, 6       ; 0, 1, 2, 3, 4, 5
+	db	80h, 0A0h, 0C0h, 0E0h   ; 0, 1, 2, N
 
 ; ------------------------------------------------------------------------------
 ;
@@ -950,7 +952,6 @@ nvm_pitch:
 	jp	p, nvmopn_pitch
 
 nvmpsg_pitch:
-	; TODO
 	ld	a, (iy+NVMPSG.tgt_period+1)
 	ld	(iy+NVMPSG.now_period+1), a
 	ld	a, (iy+NVMPSG.tgt_period)
@@ -1062,10 +1063,22 @@ nvm_sub_a_from_hl_sub:
 ;
 ; ------------------------------------------------------------------------------
 
+
+nvm_enable_noise_ctrl macro
+	ld	a, 0E0h
+	ld	(NoiseModeCheck), a
+	endm
+
+nvm_disable_noise_ctrl macro
+	xor	a
+	ld	(NoiseModeCheck), a
+	endm
+
 nvm_update_output:
 	; Restore instrument information if appropriate.
 	ld	a, (iy+NVM.mute)
-	cp	NVM_MUTE_RESTORED
+	dec	a
+;	cp	NVM_MUTE_RESTORED
 	jr	nz, +
 	ld	d, (iy+NVM.instrument_ptr+1)
 	ld	e, (iy+NVM.instrument_ptr)
@@ -1095,13 +1108,22 @@ nvmpsg_update_output:
 	or	a, 10h  ; volume command.
 	ld	(PSG), a
 	; Convert frequency data to register data
-	or	a, (iy+NVM.channel_id)  ; register
+	ld	a, (iy+NVM.channel_id)
+.noisecheck_cp:
+	cp	a, 0FFh  ; Set to 0E0h for noise pitch to control CH3, or 0FFh to not.
+	jr	nz, +
+	ld	a, 0C0h  ; CH3 address base
++:
+	ld	.chid_orval+1, a
+
+;	or	a, (iy+NVM.channel_id)  ; register
 	ld	h, (iy+NVMPSG.now_period+1)
 	ld	l, (iy+NVMPSG.now_period+0)
 	; period cmd and low data
 	ld	a, l
 	and	0Fh
-	or	(iy+NVM.channel_id)
+.chid_orval:
+	or	00h  ; To be replaced with the channel ID above
 	ld	b, a  ; save for writing a little later
 	; high data
 	ld	a, l
@@ -1116,6 +1138,8 @@ nvmpsg_update_output:
 	ld	(hl), b  ; cmd and low data
 	ld	(hl), a  ; high data
 	ret
+
+NoiseModeCheck: nvmpsg_update_output.noisecheck_cp+1
 
 ; returns in A the attenuation value to set.
 nvmpsg_env_sub:
