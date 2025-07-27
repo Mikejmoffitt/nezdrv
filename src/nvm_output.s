@@ -179,5 +179,3 @@ nvmopn_update_output:
 	ld	a, (iy+NVMOPN.now_freq)
 	ld	(de), a
 	ret
-
-

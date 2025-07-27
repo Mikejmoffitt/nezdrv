@@ -608,9 +608,6 @@ nvm_note_calc_transpose:
 
 ; Sound effects - SFX_CHANNEL_COUNT independent channels, not hardware bound.
 NvmSfx:                ds NVMSFX.len * SFX_CHANNEL_COUNT
-
-; Background music channels - fixed based on hardware channels.
 NvmBgm:
 NvmOpnBgm:             ds NVMOPN.len * OPN_BGM_CHANNEL_COUNT
 NvmPsgBgm:             ds NVMPSG.len * PSG_BGM_CHANNEL_COUNT
-

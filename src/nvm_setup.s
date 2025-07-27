@@ -94,6 +94,7 @@ nvm_bgm_reset:
 ; ------------------------------------------------------------------------------
 nvm_channel_by_id:
 	ld	d, 00h
+	add	a, a  ; word addressing
 	ld	e, a
 	ld	hl, nvm_channel_ptr_tbl
 	add	hl, de
@@ -106,6 +107,12 @@ nvm_channel_by_id:
 	ld	ix, 6502h  ; immediate replaced with data from de
 	ret
 
+
+; ------------------------------------------------------------------------------
+;
+; Tables!
+;
+; ------------------------------------------------------------------------------
 
 ; Slight misnomer - "channel ID" here refers to the base register offset used
 ; when talking to the hardware. It is fortunate that they are distinct!
