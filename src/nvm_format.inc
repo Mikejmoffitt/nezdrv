@@ -58,12 +58,6 @@ nPcmDef macro filename
 .pcmend:
 	endm
 
-; The start of an SFX track must have a byte that indicates the channel number.
-nSfxCh macro chid
-	db	chid
-	endm
-
-
 ; Channel IDs.
 NVM_CHID_OPN0  = 00h
 NVM_CHID_OPN1  = 01h
@@ -76,6 +70,16 @@ NVM_CHID_PSG1  = 07h
 NVM_CHID_PSG2  = 08h
 NVM_CHID_PSGN  = 09h
 NVM_CHID_PSGNS = 80h  ; special noise case.
+
+; Macro for setting channel ID. Will set the noise channel mode automatically.
+nSfxCh	channel
+	IF channel == NVM_CHID_PSGNS
+	dw	channel
+	nNoise	03h
+	ELSE
+	dw	channel
+	ENDIF  ; channel
+	endm
 
 ;
 ; Instruction Macros
@@ -256,6 +260,11 @@ nSwpDn	macro speed
 	nOct	0
 	db	NVM_NOTE_C | NVM_NOTE_NO_KEY_ON_FLAG | NVM_NOTE_REST_FLAG
 	db	0
+	endm
+
+nNoise	macro	noisecmd
+	db	NVM_NOISE
+	db	noisecmd
 	endm
 
 nNote macro noteval, spcarg

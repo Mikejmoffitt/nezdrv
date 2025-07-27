@@ -93,6 +93,7 @@ nvm_exec:
 	jp	nvm_op_trn      ; 25
 	jp	nvm_op_trn_add  ; 26
 	jp	nvm_op_trn_sub  ; 27
+	jp	nvm_op_noise    ; 28
 
 ; ------------------------------------------------------------------------------
 ;
@@ -385,6 +386,15 @@ IsSfx = .note_off_mute_unset_load+1
 +:
 	jr	nvm_note_off_sub.unconditional
 
+
+nvm_op_noise:    ; 28
+	ld	a, 0E0h  ; noise
+	or	(hl)  ; noise value
+	ld	(PSG), a
+	; A key-on is only triggered if it's not complex noise.
+	ret
+
+
 ;
 ; These tiny support functions are here for things that are done just often
 ; enough that a 3-byte call saves a tiny bit of space compared to inlining
@@ -474,15 +484,7 @@ nvmpsg_op_note:
 	and	a, 1Fh  ; just index
 	call	nvm_note_calc_transpose
 	ld	a, b    ; restore note
-	and	a, NVM_NOTE_NO_KEY_ON_FLAG
-	jr	nz, +
-	ld	a, (iy+NVM.instrument_ptr+0)
-	ld	(iy+NVMPSG.env_ptr+0), a
-	ld	a, (iy+NVM.instrument_ptr+1)
-	ld	(iy+NVMPSG.env_ptr+1), a
-	ld	a, 01h
-	ld	(iy+NVMPSG.key_on), a
-+:
+	callnvmpsg_note_set_env_sub
 	ld	a, b    ; restore note
 	exx  ; avoid pushing hl and bc
 	ld	c, (iy+NVM.octave)
@@ -491,6 +493,20 @@ nvmpsg_op_note:
 	ld	(iy+NVMPSG.tgt_period), l
 	exx
 	jp	nvm_op_note_setrest
+
+
+; a = note
+nvmpsg_note_set_env_sub:
+.set_key_on:
+	and	a, NVM_NOTE_NO_KEY_ON_FLAG
+	ret	nz
+	ld	a, (iy+NVM.instrument_ptr+0)
+	ld	(iy+NVMPSG.env_ptr+0), a
+	ld	a, (iy+NVM.instrument_ptr+1)
+	ld	(iy+NVMPSG.env_ptr+1), a
+	ld	a, 01h
+	ld	(iy+NVMPSG.key_on), a
+
 
 nvmopn_op_note:
 	; Volume and pan control
