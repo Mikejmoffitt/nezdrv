@@ -122,7 +122,7 @@ NVMBGM endstruct
 
 NVMSFX struct
 nvmbase:        ds NVMBGM.len
-mute_ptr:       ds 2  ; Pointer to corresponding BGM channel mute field.
+mute_channel:   ds 1
 NVMSFX endstruct
 
 NVMCONTEXT struct

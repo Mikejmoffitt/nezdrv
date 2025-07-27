@@ -29,13 +29,13 @@ sig_str:
 	include	"src/interface.s"
 	include	"src/opn.s"
 	include	"src/psg.s"
+	include	"src/nvm_setup.s"
+	include	"src/nvm_sfx.s"
+	include	"src/nvm_context.s"
+	include	"src/nvm_inst.s"
+	include	"src/nvm_pitch.s"
+	include	"src/nvm_output.s"
 	include	"src/nvm.s"
-	include	"src/mem_context.s"
-
-NvmSfx:                ds NVMSFX.len * SFX_CHANNEL_COUNT
-NvmBgm:
-NvmOpnBgm:             ds NVMOPN.len * OPN_BGM_CHANNEL_COUNT
-NvmPsgBgm:             ds NVMPSG.len * PSG_BGM_CHANNEL_COUNT
 
 ; This is where user data (tracks, instruments, etc) lives.
 UserBuffer:
