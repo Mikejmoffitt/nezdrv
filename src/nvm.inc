@@ -7,7 +7,7 @@ SFX_CHANNEL_COUNT = 3
 ; Channels A-F
 OPN_BGM_CHANNEL_COUNT = 6
 ; Channels G-J
-PSG_BGM_CHANNEL_COUNT = 3
+PSG_BGM_CHANNEL_COUNT = 4
 
 TOTAL_BGM_CHANNEL_COUNT = OPN_BGM_CHANNEL_COUNT+PSG_BGM_CHANNEL_COUNT
 TOTAL_CHANNEL_COUNT = TOTAL_BGM_CHANNEL_COUNT+SFX_CHANNEL_COUNT
@@ -83,6 +83,8 @@ now_block:      ds 1  ; if negative, immediately adopts the target.
 tgt_freq:       ds 2
 tgt_block:      ds 1
 
+pad:            ds 6
+
 NVMOPN endstruct
 
 
@@ -102,7 +104,7 @@ env_loop_ptr:   ds 2
 now_period:     ds 2
 tgt_period:     ds 2
 
-pad:            ds 4
+pad:            ds 4+6
 
 NVMPSG endstruct
 

@@ -484,7 +484,7 @@ nvmpsg_op_note:
 	and	a, 1Fh  ; just index
 	call	nvm_note_calc_transpose
 	ld	a, b    ; restore note
-	callnvmpsg_note_set_env_sub
+	call	nvmpsg_note_set_env_sub
 	ld	a, b    ; restore note
 	exx  ; avoid pushing hl and bc
 	ld	c, (iy+NVM.octave)
@@ -621,7 +621,7 @@ nvm_note_calc_transpose:
 ; NVM channel state
 ;
 ; ------------------------------------------------------------------------------
-
+	align	10h
 ; Sound effects - SFX_CHANNEL_COUNT independent channels, not hardware bound.
 NvmSfx:                ds NVMSFX.len * SFX_CHANNEL_COUNT
 NvmBgm:
