@@ -50,6 +50,7 @@ nvm_sfx_play:
 	cp	(iy+NVM.channel_id)
 	jr	z, .found_channel
 +:
+	add	iy, de
 	djnz	.loop_sfx
 	; If we didn't find one, just find an open one.
 
@@ -63,6 +64,7 @@ nvm_sfx_play:
 	cp	(iy+NVM.channel_id)
 	jr	z, .found_channel
 +:
+	add	iy, de
 	djnz	.loop_sfx2
 	ret  ; no open channels; just give up at this point.
 
@@ -91,28 +93,14 @@ nvm_sfx_play:
 
 	; Mute the channel(s) the effect uses (always a single one, unless it is
 	; the special noise case.
-	jp	nvm_sfx_mute_channel  ; A still contains the channel enum.
-
-
-; ------------------------------------------------------------------------------
-;
-; Sets channel in A to muted.
-;
-; in:
-;       a = channel pointer offset (id * 2)
-;
-; Clobbers b, de, hl
-;
-; ------------------------------------------------------------------------------
-nvm_sfx_mute_channel:
 	ld	b, NVM_MUTE_MUTED
-.commit:
-	push	hl
+.mute_commit:
 	and	a
 	jp	m, .noise_special
+	push	hl
 	call	nvm_channel_by_id
-	ld	(ix+NVM.mute), b
 	pop	hl
+	ld	(ix+NVM.mute), b
 	ret
 
 ; Mute both PSG 2 and 3 for the special noise case.
@@ -120,9 +108,8 @@ nvm_sfx_mute_channel:
 	ld	b, a
 	ld	(NvmPsgBgm+NVMPSG.len*2+NVM.mute), a
 	ld	(NvmPsgBgm+NVMPSG.len*3+NVM.mute), a
-	pop	hl
 	ret
 
 nvm_sfx_unmute_channel:
 	ld	b, NVM_MUTE_RESTORED
-	jr	nvm_sfx_mute_channel.commit
+	jr	nvm_sfx_play.mute_commit

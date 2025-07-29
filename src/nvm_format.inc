@@ -74,10 +74,10 @@ NVM_CHID_PSGNS = 80h  ; special noise case.
 ; Macro for setting channel ID. Will set the noise channel mode automatically.
 nSfxCh	macro channel
 	IF channel == NVM_CHID_PSGNS
-	dw	channel
+	db	channel
 	nNoise	03h
 	ELSE
-	dw	channel
+	db	channel
 	ENDIF  ; channel
 	endm
 

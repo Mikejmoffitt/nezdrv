@@ -46,16 +46,14 @@ BgmPlaying = .bgm_playing_load+1
 	ld	b, TOTAL_BGM_CHANNEL_COUNT
 	ld	iy, NvmBgm
 	ld	de, NVMBGM.len
-	call	nvm_poll
+	jp	nvm_poll
 
 nez_run_sfx_sub:
 	ld	a, 0FFh
 	ld	(VblWaitFlag), a
 
 	call	nvm_context_sfx_set
-
 	ld	b, SFX_CHANNEL_COUNT
 	ld	iy, NvmSfx
 	ld	de, NVMSFX.len
-	call	nvm_poll
-	ret
+	jp	nvm_poll
