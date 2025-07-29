@@ -53,7 +53,14 @@ nvm_reset_by_type_sub:
 .psg_specific:
 	xor	a
 	ld	(iy+NVMPSG.key_on), a
+	ld	hl, .default_envelope
+	ld	(iy+NVMPSG.env_ptr+1), h
+	ld	(iy+NVMPSG.env_ptr), l
 	ret
+; default envelope for inactive channels / initialized channels.
+.default_envelope:
+	db	00h, NVM_MACRO_END
+
 .opn_specific:
 	; default to both outputs, no modulation
 	ld	(iy+NVMOPN.pan), OPN_PAN_L|OPN_PAN_R

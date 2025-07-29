@@ -392,6 +392,12 @@ nvm_op_noise:    ; 28
 	or	(hl)  ; noise value
 	ld	(PSG), a
 	; A key-on is only triggered if it's not complex noise.
+	cp	a, 0E3h
+	jr	z, .noise_special_en
+	nvm_disable_noise_ctrl
+	ret
+.noise_special_en:
+	nvm_enable_noise_ctrl
 	ret
 
 
@@ -506,6 +512,7 @@ nvmpsg_note_set_env_sub:
 	ld	(iy+NVMPSG.env_ptr+1), a
 	ld	a, 01h
 	ld	(iy+NVMPSG.key_on), a
+	ret
 
 
 nvmopn_op_note:

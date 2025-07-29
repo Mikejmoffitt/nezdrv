@@ -15,6 +15,8 @@ nvm_disable_noise_ctrl macro
 	ld	(NoiseModeCheck), a
 	endm
 
+NoiseModeCheck = nvmpsg_update_output.noisecheck_cp+1
+
 nvm_update_output:
 	ld	a, (iy+NVM.channel_id)
 	and	a
@@ -69,8 +71,6 @@ nvmpsg_update_output:
 	ld	(hl), b  ; cmd and low data
 	ld	(hl), a  ; high data
 	ret
-
-NoiseModeCheck = nvmpsg_update_output.noisecheck_cp+1
 
 ; returns in A the attenuation value to set.
 nvmpsg_env_sub:
