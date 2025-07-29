@@ -9,23 +9,22 @@
 ;
 ; ------------------------------------------------------------------------------
 
-; iy = NVM head
+; iy = NVM/NVMBGM head
 nvm_reset_sub:
 	exx
-	; Zero some defaults to inactive
+	; Get iy into hl
+	push	iy
+	pop	hl
+	; Zero out the struct, backing up and restoring channel ID
+	ld	c, (iy+NVM.channel_id)
 	xor	a
-	ld	(iy+NVM.status), a      ; inactive
-	ld	(iy+NVM.mute), a        ; unmuted
-	ld	(iy+NVM.portamento), a  ; no portamento
+	ld	b, NVMBGM.len
+-:
+	ld	(hl), a
+	inc	hl
+	djnz	-
+	ld	(iy+NVM.channel_id), c
 
-;	ld	(iy+NVM.vib_phase), a
-;	ld	(iy+NVM.vib_cnt), a
-;	ld	(iy+NVM.vib_mag), a
-;	ld	(iy+NVM.vib_speed), a
-
-	ld	(iy+NVM.rest_cnt), a
-	ld	(iy+NVM.transpose), a   ; no transpose
-	ld	(iy+NVM.volume), a      ; no attenuation
 	; Set stack pointer
 	push	iy
 	pop	hl
@@ -51,15 +50,10 @@ nvm_reset_by_type_sub:
 	and	a
 	jp	p, .opn_specific
 .psg_specific:
-	xor	a
-	ld	(iy+NVMPSG.key_on), a
-	ld	hl, .default_envelope
+	ld	hl, nvm_psg_default_envelope
 	ld	(iy+NVMPSG.env_ptr+1), h
 	ld	(iy+NVMPSG.env_ptr), l
 	ret
-; default envelope for inactive channels / initialized channels.
-.default_envelope:
-	db	00h, NVM_MACRO_END
 
 .opn_specific:
 	; default to both outputs, no modulation

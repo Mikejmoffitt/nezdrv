@@ -18,8 +18,21 @@ nez_signature:  ; after startup is complete, three bytes become 'NEZ'
 v_rst0:
 	jr	start                ; 2 bytes
 sig_str:
-	db	"NEZDRV"
+	db	"_DRV10"
 	include	"src/pcm.s"
+
+	; Cramming some stuff between end of PCM and IRQ at 0038h
+nvm_psg_default_envelope:
+	db	00h, NVM_MACRO_END
+
+
+nvm_store_hl_pc_sub:
+	ld	(iy+NVM.pc+1), h
+	ld	(iy+NVM.pc), l
+	ret
+
+	; Two bytes remain between here.
+
 	include	"src/irq.s"
 	include	"src/startup.s"
 	include	"src/nvm_init.s"
@@ -35,10 +48,29 @@ sig_str:
 	include	"src/nvm_inst.s"
 	include	"src/nvm_pitch.s"
 	include	"src/nvm_output.s"
+	include	"src/nvm_note.s"
 	include	"src/nvm.s"
+
+
+; ------------------------------------------------------------------------------
+;
+; NVM channel state
+;
+; ------------------------------------------------------------------------------
+	align	10h
+; Sound effects - SFX_CHANNEL_COUNT independent channels, not hardware bound.
+NvmSfx:                ds NVMSFX.len * SFX_CHANNEL_COUNT
+NvmBgm:
+NvmOpnBgm:             ds NVMOPN.len * OPN_BGM_CHANNEL_COUNT
+NvmPsgBgm:             ds NVMPSG.len * PSG_BGM_CHANNEL_COUNT
+
 
 ; This is where user data (tracks, instruments, etc) lives.
 UserBuffer:
+
+	IF	$ > NEZ_MAILBOX_ADDR
+	ERROR "User Buffer runs into mailbox memory!"
+	ENDIF
 
 	org NEZ_MAILBOX_ADDR
 MailBox:        ds NEZMB.len

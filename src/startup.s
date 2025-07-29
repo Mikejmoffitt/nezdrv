@@ -1,16 +1,19 @@
 start:
 	di                           ; 1 byte
+	im	1
 	ld	sp, NEZ_MAILBOX_ADDR ; 3 bytes
 	call	opn_reset
 	call	psg_reset
 	call	nvm_init
 	call	mailbox_init
-	im	1
+	ld	hl, nez_signature
+	ld	(hl), 'N'
+	inc	hl
+	ld	(hl), 'E'
+	inc	hl
+	ld	(hl), 'Z'
+
 	ei
-	ld	bc, 6
-	ld	hl, sig_str
-	ld	de, nez_signature
-	ldir
 	jp	mainloop
 
 mem_clear_sub:

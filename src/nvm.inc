@@ -121,7 +121,7 @@ NVMBGM struct
 nvmbase:        ds NVMOPN.len
 NVMBGM endstruct
 
-
+; SFX structs are the BGM struct plus an additional field.
 NVMSFX struct
 nvmbase:        ds NVMBGM.len
 mute_channel:   ds 1

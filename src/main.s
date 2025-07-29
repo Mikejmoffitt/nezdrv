@@ -43,7 +43,7 @@ BgmPlaying = .bgm_playing_load+1
 	ret	m  ; just paused; return without playing.
 	jp	z, nvm_bgm_reset
 	call	nvm_context_bgm_set
-	ld	b, TOTAL_BGM_CHANNEL_COUNT
+	ld	a, TOTAL_BGM_CHANNEL_COUNT
 	ld	iy, NvmBgm
 	ld	de, NVMBGM.len
 	jp	nvm_poll
@@ -53,7 +53,7 @@ nez_run_sfx_sub:
 	ld	(VblWaitFlag), a
 
 	call	nvm_context_sfx_set
-	ld	b, SFX_CHANNEL_COUNT
+	ld	a, SFX_CHANNEL_COUNT
 	ld	iy, NvmSfx
 	ld	de, NVMSFX.len
 	jp	nvm_poll

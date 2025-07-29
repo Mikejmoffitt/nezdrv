@@ -57,7 +57,7 @@ nvmopn_pitch:
 	sub_a_from_hl
 	; Is hl below OPN_NOTE_C?
 	ld	de, OPN_NOTE_C
-	compare_hl_r16 de
+	call	nvm_compare_hl_r16_de_sub
 	jr	nc, .now_freq_hl_commit
 	; if so, decrement now_block and add OPN_NOTE_C.
 	ld	de, OPN_NOTE_C  ; for addition
@@ -73,7 +73,7 @@ nvmopn_pitch:
 	call	nvm_add_a_to_hl_sub
 	; Is hl above OPN_NOTE_C*2?
 	ld	de, OPN_NOTE_C*2
-	compare_hl_r16 de
+	call	nvm_compare_hl_r16_de_sub
 	jr	c, .now_freq_hl_commit
 	; if so, increment now_block and subtract OPN_NOTE_C.
 	ld	de, 10000h-OPN_NOTE_C  ; subtraction of OPN_NOTE_C
@@ -93,14 +93,14 @@ nvmopn_pitch:
 	ld	d, (iy+NVMOPN.tgt_freq+1)
 	ld	e, (iy+NVMOPN.tgt_freq)
 	; Is the target frequency higher?
-	compare_hl_r16 de
+	call	nvm_compare_hl_r16_de_sub
 	ret	z  ; same block, same freq. get outta here
 	jr	c, .target_freq_higher
 .target_freq_lower:
 	ld	a, (iy+NVM.portamento)
 	call	nvm_sub_a_from_hl_sub
 	; Did we surpass the target?
-	compare_hl_r16 de
+	call	nvm_compare_hl_r16_de_sub
 	jr	nc, .now_freq_hl_commit  ; nope
 	; Adopt target and get out.
 .now_freq_de_commit:
@@ -111,7 +111,7 @@ nvmopn_pitch:
 	ld	a, (iy+NVM.portamento)
 	call	nvm_add_a_to_hl_sub
 	; Did we surpass the target?
-	compare_hl_r16 de
+	call	nvm_compare_hl_r16_de_sub
 	jr	c, .now_freq_hl_commit  ; nope
 	jr	.now_freq_de_commit  ; adopt target and get out.
 
@@ -122,3 +122,8 @@ nvm_add_a_to_hl_sub:
 nvm_sub_a_from_hl_sub:
 	sub_a_from_hl
 	ret
+
+nvm_compare_hl_r16_de_sub:
+	compare_hl_r16 de
+	ret
+
