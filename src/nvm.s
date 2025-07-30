@@ -385,11 +385,20 @@ nvm_op_stop:     ; 18
 	ld	a, 00h  ; to be replaced; this becomes "IsSfx"
 IsSfx = .note_off_mute_unset_load+1
 	and	a
-	jr	z, +
+	jr	z, .finished
 	; If it's a sound effect, unmute corresponding channel.
 	ld	a, (iy+NVMSFX.mute_channel)
 	call	nvm_sfx_unmute_channel
-+:
+
+	; for either noise channel ID, update noise mode
+	ld	a, (iy+NVM.channel_id)
+	cp	0E0h
+	jr	nz, .not_noise
+	ld	a, (BgmContext+NVMCONTEXT.noise_mode)
+	call	nvm_noise_mode_set_sub
+.not_noise:
+
+.finished:
 	jr	nvm_note_off_sub.unconditional
 
 
@@ -397,17 +406,23 @@ nvm_op_noise:    ; 28
 	ld	a, 0E0h  ; noise
 	or	(hl)  ; noise value
 	inc	hl
-	ld	(PSG), a
-	; A key-on is only triggered if it's not complex noise.
+	ld	(CurrentContext+NVMCONTEXT.noise_mode), a
+	call	nvm_noise_mode_set_sub
+	jp	nvm_exec.instructions_from_hl
+
+; Sends noise mode command to PSG port and enables or disables ch3 redirect.
+; in:
+;       a = nois mode write command
+nvm_noise_mode_set_sub:
+	ld	(PSG), a  ; write to hardware
 	and	03h
 	cp	a, 03h
 	jr	z, .noise_special_en
 	nvm_disable_noise_ctrl
-	jp	nvm_exec.instructions_from_hl
+	ret
 .noise_special_en:
 	nvm_enable_noise_ctrl
-	jp	nvm_exec.instructions_from_hl
-
+	ret
 
 ;
 ; These tiny support functions are here for things that are done just often

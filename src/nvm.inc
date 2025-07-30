@@ -28,6 +28,8 @@ NVM_MUTE_NONE     = 00h
 NVM_MUTE_RESTORED = 01h
 NVM_MUTE_MUTED    = 80h
 
+NVM_PADDING = 00h
+
 	align	10h
 ;
 ; NEZDRV channel VM memory state.
@@ -83,7 +85,7 @@ now_block:      ds 1  ; if negative, immediately adopts the target.
 tgt_freq:       ds 2
 tgt_block:      ds 1
 
-pad:            ds 6
+pad:            ds NVM_PADDING
 
 NVMOPN endstruct
 
@@ -104,7 +106,7 @@ env_loop_ptr:   ds 2
 now_period:     ds 2
 tgt_period:     ds 2
 
-pad:            ds 4+6
+pad:            ds 4+NVM_PADDING
 
 NVMPSG endstruct
 
@@ -132,6 +134,7 @@ global_volume:       ds 1
 buffer_ptr:          ds 2
 instrument_list_ptr: ds 2
 pcm_rate:            ds 2
+noise_mode:          ds 1
 NVMCONTEXT endstruct
 
 

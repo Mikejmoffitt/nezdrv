@@ -18,6 +18,9 @@ nvm_init:
 	xor	a
 	ld	(BgmContext+NVMCONTEXT.global_volume), a
 	ld	(SfxContext+NVMCONTEXT.global_volume), a
+	ld	a, 0E0h
+	ld	(BgmContext+NVMCONTEXT.noise_mode), a
+	ld	(SfxContext+NVMCONTEXT.noise_mode), a
 	ret
 
 nvm_bgm_channels_init:

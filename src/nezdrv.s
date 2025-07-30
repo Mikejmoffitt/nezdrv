@@ -51,6 +51,14 @@ nvm_store_hl_pc_sub:
 	include	"src/nvm_note.s"
 	include	"src/nvm.s"
 
+; ------------------------------------------------------------------------------
+;
+; Context buffers
+;
+; ------------------------------------------------------------------------------
+BgmContext:            ds NVMCONTEXT.len
+SfxContext:            ds NVMCONTEXT.len
+CurrentContext:        ds NVMCONTEXT.len
 
 ; ------------------------------------------------------------------------------
 ;

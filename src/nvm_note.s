@@ -12,6 +12,7 @@ nvmpsg_op_note:
 	ld	a, b    ; restore note
 	call	nvmpsg_note_set_env_sub
 	ld	a, b    ; restore note
+
 	exx  ; avoid pushing hl and bc
 	ld	c, (iy+NVM.octave)
 	call	psg_calc_period

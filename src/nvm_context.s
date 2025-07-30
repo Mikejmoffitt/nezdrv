@@ -37,12 +37,3 @@ nvm_context_copy:
 	pcm_service
 	pop	hl
 	ret
-
-; ------------------------------------------------------------------------------
-;
-; Context buffers
-;
-; ------------------------------------------------------------------------------
-BgmContext:            ds NVMCONTEXT.len
-SfxContext:            ds NVMCONTEXT.len
-CurrentContext:        ds NVMCONTEXT.len

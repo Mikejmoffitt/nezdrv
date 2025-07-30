@@ -91,6 +91,12 @@ nvm_sfx_play:
 	ld	(iy+NVM.pc), l
 	ld	(iy+NVM.status), NVM_STATUS_ACTIVE
 
+	; Magic noise variant (NVM_CHID_PSGNS)
+	and	a
+	jp	p, +
+	ld	(iy+NVM.channel_id), 0E0h
++:
+
 	; Mute the channel(s) the effect uses (always a single one, unless it is
 	; the special noise case.
 	ld	b, NVM_MUTE_MUTED
@@ -105,7 +111,7 @@ nvm_sfx_play:
 
 ; Mute both PSG 2 and 3 for the special noise case.
 .noise_special:
-	ld	b, a
+	ld	a, b
 	ld	(NvmPsgBgm+NVMPSG.len*2+NVM.mute), a
 	ld	(NvmPsgBgm+NVMPSG.len*3+NVM.mute), a
 	ret

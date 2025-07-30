@@ -46,7 +46,10 @@ BgmPlaying = .bgm_playing_load+1
 	ld	a, TOTAL_BGM_CHANNEL_COUNT
 	ld	iy, NvmBgm
 	ld	de, NVMBGM.len
-	jp	nvm_poll
+	call	nvm_poll
+	ld	a, (CurrentContext+NVMCONTEXT.noise_mode)
+	ld	(BgmContext+NVMCONTEXT.noise_mode), a
+	ret
 
 nez_run_sfx_sub:
 	ld	a, 0FFh
@@ -56,4 +59,7 @@ nez_run_sfx_sub:
 	ld	a, SFX_CHANNEL_COUNT
 	ld	iy, NvmSfx
 	ld	de, NVMSFX.len
-	jp	nvm_poll
+	call	nvm_poll
+	ld	a, (CurrentContext+NVMCONTEXT.noise_mode)
+	ld	(SfxContext+NVMCONTEXT.noise_mode), a
+	ret
