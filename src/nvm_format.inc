@@ -69,7 +69,7 @@ NVM_CHID_PSG0  = 06h
 NVM_CHID_PSG1  = 07h
 NVM_CHID_PSG2  = 08h
 NVM_CHID_PSGN  = 09h
-NVM_CHID_PSGNS = 80h  ; special noise case.
+NVM_CHID_PSGNS = 89h  ; special noise case.
 
 ; Macro for setting channel ID. Will set the noise channel mode automatically.
 nSfxCh	macro channel

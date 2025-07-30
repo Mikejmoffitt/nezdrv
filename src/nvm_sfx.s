@@ -32,6 +32,7 @@ nvm_sfx_play:
 	; Set up the SFX loop for the first run, where we want a channel match.
 	ld	d, 00h
 	ld	a, (hl)
+	and	7Fh  ; filter out NVM_CHID_PSGNS...
 	ld	e, a  ; desired channel ID index
 	push	hl  ; will be assigned to the final channel.
 	ld	hl, nvm_channel_id_tbl
@@ -66,6 +67,7 @@ nvm_sfx_play:
 +:
 	add	iy, de
 	djnz	.loop_sfx2
+	pop	hl
 	ret  ; no open channels; just give up at this point.
 
 ; An open SFX channel has been found - initialize it and store the channel ID.
@@ -80,7 +82,7 @@ nvm_sfx_play:
 
 	; assign channel ID and track head, and mark as active.
 
-	; Read the marked channel enum and adopt it as the mute channel.
+	; Read the marked channel enum as-is and adopt it as the mute channel.
 	pop	hl
 	ld	a, (hl)
 	ld	(iy+NVMSFX.mute_channel), a
@@ -90,12 +92,6 @@ nvm_sfx_play:
 	ld	(iy+NVM.pc+1), h
 	ld	(iy+NVM.pc), l
 	ld	(iy+NVM.status), NVM_STATUS_ACTIVE
-
-	; Magic noise variant (NVM_CHID_PSGNS)
-	and	a
-	jp	p, +
-	ld	(iy+NVM.channel_id), 0E0h
-+:
 
 	; Mute the channel(s) the effect uses (always a single one, unless it is
 	; the special noise case.
