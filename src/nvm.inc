@@ -20,6 +20,8 @@ NVM_STATUS_ACTIVE = 1
 NVM_CHTYPE_OPN = 0
 NVM_CHTYPE_PSG = 1
 
+NEZ_PCMRATE = 03FBh  ; around 11KHz I think?
+
 NVM_REST_DEFAULT = 12
 
 NVM_BLOCK_PORTAMENTO_SKIP_FLAG = 80h
@@ -84,7 +86,6 @@ now_freq:       ds 2
 now_block:      ds 1  ; if negative, immediately adopts the target.
 tgt_freq:       ds 2
 tgt_block:      ds 1
-
 pad:            ds NVM_PADDING
 
 NVMOPN endstruct
@@ -141,8 +142,7 @@ NVMCONTEXT endstruct
 ; Header defining a header for a blob of track data (BGM or SFX).
 ; Two bytes preceed it with a word that contains the byte count of the data.
 NEZINFO struct
-ta:                    ds 2  ; Timer A value (PCM rate) (ignored for SFX)
-tb:                    ds 1  ; Timer B value (tempo control)
+tb:                    ds 1  ; Timer B value (tempo control, ignored for SFX)
 ; Null-terminated lists that are relative to the start of the data blob.
 track_list_offs:       ds 2  ; For SFX, these are the effect indices.
 instrument_list_offs:  ds 2

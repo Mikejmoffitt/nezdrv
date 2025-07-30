@@ -37,8 +37,6 @@ nez_load_sfx_data:
 	ld	(PcmListPtr), de  ; PCM data
 	call	nez_load_standard_rebase_sub
 
-	call	nez_load_timers_sub
-
 	ld	de, (CurrentContext+NVMCONTEXT.pcm_rate)
 	ld	(SfxContext+NVMCONTEXT.pcm_rate), de
 	ld	de, (CurrentContext+NVMCONTEXT.instrument_list_ptr)
@@ -99,14 +97,10 @@ nez_load_buffer_sub:
 ; timer B directly into the OPN.
 nez_load_timers_sub:
 	ld	hl, (CurrentContext+NVMCONTEXT.buffer_ptr)
-	IF	NEZINFO.ta > 0
-	ld	de, NEZINFO.ta
+	IF	NEZINFO.tb > 0
+	ld	de, NEZINFO.tb
 	add	hl, de
 	ENDIF
-	; Copy timer A data
-	ld	de, CurrentContext+NVMCONTEXT.pcm_rate
-	ldi
-	ldi
 	; Set timer B
 	ld	a, OPN_REG_TB
 	ld	(OPN_ADDR0), a

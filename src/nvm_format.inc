@@ -8,7 +8,6 @@
 ; Track header definition.
 ;
 
-NEZ_PCMRATE_DEFAULT = 03FBh
 NEZ_TEMPO_DEFAULT = 0E0h
 NEZ_REST_LENGTH_DEFAULT = 12
 
@@ -18,16 +17,14 @@ nTrackRelPtr macro lbl
 	endm
 
 ; Start marker for track / effect file.
-; pcmrate:         PCM playback rate (0 - 1023)
 ; temporate:       Music base timer rate (0 - 255). Ignored for sound effects.
 ; instrumentlists: Instrument list symbol name.
 ;
 ; This macro must be placed at the top of the file before any data.
 ;
-nTrackHeader macro pcmrate, temporate, tracklist, instrumentlist
+nTrackHeader macro temporate, tracklist, instrumentlist
 NEZ_TRACK_BASE := $
 	nTrackRelPtr NEZ_TRACK_END
-	nPcmRateEncode pcmrate
 	db	temporate
 	nTrackRelPtr tracklist
 	nTrackRelPtr instrumentlist
@@ -42,12 +39,6 @@ NEZ_TRACK_END := $
 ; List end marker (null terminator for the time being)
 nTrackListEnd macro
 	dw	0
-	endm
-
-; Macro to massage 10-bit timer value for use with Timer A register.
-nPcmRateEncode macro pcmrate
-	db	((pcmrate)>>2)
-	db	((pcmrate)&03h)
 	endm
 
 ; Macro to include a PCM file and assign it a length marker.
@@ -193,6 +184,7 @@ nStop macro
 
 nOff macro spcarg=-1
 	db	NVM_NOTE_OFF
+
 	IF spcarg == -1
 	nRest
 	ENDIF  ; spcarg
@@ -205,12 +197,6 @@ nSlide macro slideval
 	db	NVM_SLIDE, slideval
 	endm
 
-nPcmRate macro rateval
-	db	NVM_PCMRATE
-	; data is massaged for Timer-A register consumption.
-	nPcmRateEncode rateval
-	endm
-
 nPcmMode macro enabled
 	db	NVM_PCMMODE
 	IF enabled > 0
@@ -220,16 +206,16 @@ nPcmMode macro enabled
 	ENDIF  ; enabled
 	endm
 
-nPcmPlay macro id, spcarg=-1
+nPcmPlay macro pcmid, spcarg=-1
 	db	NVM_PCMPLAY
-	db	(id)*3
-	IF	spcarg == -1
+	db	(pcmid)*3
+
+	IF (spcarg) == -1
 	nRest
-	ELSE
-	IF restart > 0
-	nRest spcarg
-	ENDIF
-	ENDIF
+	ENDIF  ; spcarg
+	IF (spcarg) > 0
+	nRest	spcarg
+	ENDIF  ; spcarg
 	endm
 
 nPcmStop macro
@@ -389,8 +375,8 @@ NVM_STOP     = 3*17
 NVM_NOTE_OFF = 3*18
 ; Set portamento
 NVM_SLIDE    = 3*19
-; Set timer A value +2 bytes
-NVM_PCMRATE  = 3*20
+; Unused (reserved)
+NVM_RES_20   = 3*20
 ; Enable or disable PCM mode +1 byte (80h = enable)
 NVM_PCMMODE  = 3*21
 ; Play a PCM sample by ID + 1 byte

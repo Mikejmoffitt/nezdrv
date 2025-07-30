@@ -66,6 +66,8 @@ opn_reset:
 	db	OPN_REG_KEYON,  04h
 	db	OPN_REG_KEYON,  05h
 	db	OPN_REG_KEYON,  06h
+	db	OPN_REG_TA_HI, (NEZ_PCMRATE)>>2
+	db	OPN_REG_TA_LO, (NEZ_PCMRATE)&03h
 .init_data_end:
 
 opn_keyon_delay_sub:

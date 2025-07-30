@@ -91,7 +91,7 @@ nvm_exec:
 	jp	nvm_op_stop     ; 17
 	jp	nvm_op_note_off ; 18
 	jp	nvm_op_slide    ; 19
-	jp	nvm_op_pcmrate  ; 20
+	jp	nvm_op_res_20   ; 20
 	jp	nvm_op_pcmmode  ; 21
 	jp	nvm_op_pcmplay  ; 22
 	jp	nvm_op_pcmstop  ; 23
@@ -314,12 +314,7 @@ nvm_op_slide:    ; 19
 	ld	a, (hl)
 	inc	hl
 	ld	(iy+NVM.portamento), a
-	jp	nvm_exec.instructions_from_hl
-
-nvm_op_pcmrate:  ; 20
-	ld	de, CurrentContext+NVMCONTEXT.pcm_rate
-	ldi
-	ldi
+nvm_op_res_20:  ; 20
 	jp	nvm_exec.instructions_from_hl
 
 nvm_op_pcmmode:  ; 21
@@ -343,12 +338,6 @@ nvm_op_pcmplay:  ; 22
 	inc	hl
 	ld	d, (hl)
 	ld	(PcmAddr), de
-	; Set timer A rate
-	ld	hl, CurrentContext+NVMCONTEXT.pcm_rate
-	ld	a, OPN_REG_TA_HI
-	call	nvm_write_opn_global_hl_sub
-	ld	a, OPN_REG_TA_LO
-	call	nvm_write_opn_global_hl_sub
 	; Enable PCM
 	pcm_poll_enable
 	pop	hl
