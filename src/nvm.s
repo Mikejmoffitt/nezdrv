@@ -54,6 +54,7 @@ nvm_exec:
 	jr	z, .instructions_from_pc
 	dec	a
 	ld	(iy+NVM.rest_cnt), a
+	pcm_service
 	ret
 
 .instructions_from_pc:
