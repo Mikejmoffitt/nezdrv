@@ -5,6 +5,8 @@
 	cpu		Z80
 	dottedstructs	on
 
+NEZ_HICLK = FALSE
+
 	include	"src/macro.inc"
 	include	"src/memmap.inc"
 

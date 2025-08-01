@@ -66,6 +66,7 @@ psg_calc_period:
 .set_period:
 	ret
 
+	IF NEZ_HICLK == FALSE
 nvmpsg_period_tbl:
 	dw	851*2  ; C
 	dw	803*2
@@ -79,3 +80,21 @@ nvmpsg_period_tbl:
 	dw	506*2
 	dw	477*2
 	dw	450*2  ; B
+	
+	ELSE
+; With the Z80 at 7.670434MHz (up from 3.579545) some adjustment is needed.
+nvmpsg_period_tbl:
+	dw	1824*2  ; C
+	dw	1721*2
+	dw	1625*2
+	dw	1532*2
+	dw	1446*2
+	dw	1365*2
+	dw	1288*2
+	dw	1217*2
+	dw	1149*2
+	dw	1084*2
+	dw	1022*2
+	dw	964*2  ; B
+
+	ENDIF  ; NEZ_HICLK
